@@ -61,7 +61,8 @@ def process_ecs_services(ecs_config, env_config, new_cluster_name, app_name):
                 "cpu_percent": service_override.get('cpu_percent', service_settings['thresholds'].get('cpu_percent', 85)),
                 "memory_percent": service_override.get('memory_percent', service_settings['thresholds'].get('memory_percent', 90)),
                 "memory_available": service_override.get('memory_available', service_settings['thresholds'].get('memory_available', 1024)),
-                "network_errors": service_override.get('network_errors', service_settings['thresholds'].get('network_errors', 20))
+                "network_errors": service_override.get('network_errors', service_settings['thresholds'].get('network_errors', 20)),
+                "desired_count": service_override.get('desired_count', service_settings['thresholds'].get('desired_count', 2))
             },
             "alert_settings": {
                 "priority": service_override.get('alert_settings', {}).get('priority', service_settings['alert_settings'].get('priority', '2')),
@@ -133,7 +134,8 @@ def process_db_config(db_config, env_config, app_name):
                     "thresholds": {
                         "cpu_percent": db_env_overrides.get('cpu_percent', db_settings['thresholds'].get('cpu_percent', 80)),
                         "memory_threshold": db_env_overrides.get('memory_threshold', db_settings['thresholds'].get('memory_threshold', 2)),
-                        "connection_threshold": db_env_overrides.get('connection_threshold', db_settings['thresholds'].get('connection_threshold', 100))
+                        "connection_threshold": db_env_overrides.get('connection_threshold', db_settings['thresholds'].get('connection_threshold', 100)),
+                        "iops_threshold": db_env_overrides.get('iops_threshold', db_settings['thresholds'].get('iops_threshold', 2400))
                     },
                     "alert_settings": {
                         "priority": db_env_overrides.get('alert_settings', {}).get('priority', db_settings['alert_settings'].get('priority', '2')),

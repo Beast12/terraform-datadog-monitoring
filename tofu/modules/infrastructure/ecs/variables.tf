@@ -18,6 +18,7 @@ variable "services" {
       memory_percent   = number # Critical threshold level in percent
       memory_available = number # Total memory allocated to the service (in MB)
       network_errors   = number
+      desired_count    = number
     })
     alert_settings = object({
       priority     = string

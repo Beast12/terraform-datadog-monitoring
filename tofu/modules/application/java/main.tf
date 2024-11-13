@@ -89,19 +89,20 @@ resource "datadog_monitor" "jvm_minor_gc_time" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_5m):sum:jvm.gc.minor_collection_time{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.minor_gc_time}"
+  query = "avg(last_15m):( sum:jvm.gc.minor_collection_time{service:${each.value.service_name},env:${var.environment}}.as_rate() / sum:jvm.gc.minor_collection_count{service:${each.value.service_name},env:${var.environment}}.as_rate() ) > ${each.value.thresholds.minor_gc_time}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.minor_gc_time
-    critical_recovery = each.value.thresholds.minor_gc_time * 0.7
-    warning           = each.value.thresholds.minor_gc_time * 0.75
-    warning_recovery  = each.value.thresholds.minor_gc_time * 0.5
+    critical_recovery = each.value.thresholds.minor_gc_time * 0.8
+    warning           = each.value.thresholds.minor_gc_time * 0.85
+    warning_recovery  = each.value.thresholds.minor_gc_time * 0.7
   }
 
 
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
+  evaluation_delay    = 300
 
   tags = concat(
     local.monitor_tags,
@@ -136,7 +137,7 @@ resource "datadog_monitor" "jvm_major_gc_time" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_5m):sum:jvm.gc.major_collection_time{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.major_gc_time}"
+  query = "avg(last_15m):( sum:jvm.gc.major_collection_time{service:${each.value.service_name},env:${var.environment}}.as_rate() / sum:jvm.gc.major_collection_count{service:${each.value.service_name},env:${var.environment}}.as_rate() ) > ${each.value.thresholds.major_gc_time}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.major_gc_time
@@ -149,6 +150,7 @@ resource "datadog_monitor" "jvm_major_gc_time" {
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
+  evaluation_delay    = 300
 
   tags = concat(
     local.monitor_tags,

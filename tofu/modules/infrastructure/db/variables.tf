@@ -17,8 +17,9 @@ variable "databases" {
     service_name = string
     thresholds = object({
       cpu_percent          = number
-      memory_threshold     = number # in GB
+      memory_threshold     = number
       connection_threshold = number
+      iops_threshold       = number
     })
     alert_settings = object({
       priority     = string

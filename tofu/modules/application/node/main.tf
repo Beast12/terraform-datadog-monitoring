@@ -36,16 +36,19 @@ resource "datadog_monitor" "node_cpu_total_usage" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_5m):avg:runtime.node.cpu.total{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.cpu_total_usage}"
+  query = "avg(last_15m):avg:runtime.node.cpu.total{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.cpu_total_usage}"
 
   monitor_thresholds {
-    critical = each.value.thresholds.cpu_total_usage
-    warning  = each.value.thresholds.cpu_total_usage * 0.75
+    critical          = each.value.thresholds.cpu_total_usage
+    critical_recovery = each.value.thresholds.cpu_total_usage * 0.8
+    warning           = each.value.thresholds.cpu_total_usage * 0.85
+    warning_recovery  = each.value.thresholds.cpu_total_usage * 0.7
   }
 
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
+  evaluation_delay    = 300
 
   tags = concat(
     local.monitor_tags,
@@ -125,8 +128,10 @@ resource "datadog_monitor" "node_event_loop_delay" {
   query = "avg(last_5m):avg:runtime.node.event_loop.delay.avg{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.event_loop_delay}"
 
   monitor_thresholds {
-    critical = each.value.thresholds.event_loop_delay
-    warning  = each.value.thresholds.event_loop_delay * 0.75
+    critical          = each.value.thresholds.event_loop_delay
+    critical_recovery = each.value.thresholds.event_loop_delay * 0.7
+    warning           = each.value.thresholds.event_loop_delay * 0.8
+    warning_recovery  = each.value.thresholds.event_loop_delay * 0.6
   }
 
   include_tags        = true

@@ -10,15 +10,15 @@ locals {
   )
 
   slack_channel = try(
-    var.notification_channels.application["java"],
+    var.notification_channels.application["apm"],
     var.notification_channels.default
   )
   queries = {
     for service, config in var.apm_services :
     service => (
       lookup(config, "type", "java") == "node" ?
-      "change(avg(last_10m),last_4h):sum:trace.next.request.errors{service:${config.service_name},env:${var.environment}}.as_rate() > ${config.thresholds.error_rate}" :
-      "change(avg(last_10m),last_4h):sum:trace.servlet.request.errors{service:${config.service_name},env:${var.environment}}.as_rate() > ${config.thresholds.error_rate}"
+      "change(avg(last_15m),last_4h):sum:trace.next.request.errors{service:${config.service_name},env:${var.environment}}.as_rate().rollup(sum, 300) > ${config.thresholds.error_rate}" :
+      "change(avg(last_15m),last_4h):sum:trace.servlet.request.errors{service:${config.service_name},env:${var.environment}}.as_rate().rollup(sum, 300) > ${config.thresholds.error_rate}"
     )
   }
 }
@@ -51,15 +51,16 @@ resource "datadog_monitor" "apm_latency" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.latency
-    critical_recovery = each.value.thresholds.latency * 0.6
-    warning           = each.value.thresholds.latency * 0.75
-    warning_recovery  = each.value.thresholds.latency * 0.5
+    critical_recovery = each.value.thresholds.latency * 0.7
+    warning           = each.value.thresholds.latency * 0.8
+    warning_recovery  = each.value.thresholds.latency * 0.6
   }
 
 
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
+  evaluation_delay    = 900
 
   tags = concat(
     local.monitor_tags,
@@ -96,14 +97,15 @@ resource "datadog_monitor" "error_rate_monitor" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.error_rate
-    critical_recovery = each.value.thresholds.error_rate * 0.8
-    warning           = each.value.thresholds.error_rate * 0.5
-    warning_recovery  = each.value.thresholds.error_rate * 0.3
+    critical_recovery = each.value.thresholds.error_rate * 0.6
+    warning           = each.value.thresholds.error_rate * 0.7
+    warning_recovery  = each.value.thresholds.error_rate * 0.5
   }
 
   include_tags        = each.value.alert_settings.include_tags
   notify_no_data      = false
   require_full_window = false
+  evaluation_delay    = 900
 
   tags = concat(
     local.monitor_tags,
@@ -142,15 +144,17 @@ resource "datadog_monitor" "apm_throughput" {
     @${local.slack_channel}
   EOT
 
-  query = "sum(last_10m):sum:trace.servlet.request.hits{service:${each.value.service_name},env:${var.environment}}.as_count() < 0"
+  query = "sum(last_15m):sum:trace.servlet.request.hits{service:${each.value.service_name},env:${var.environment}}.as_count().rollup(sum, 300) < 0"
 
   monitor_thresholds {
     critical          = 0 # No data should trigger critical alert
     critical_recovery = 1 # Any data received will clear the alert
   }
 
-  include_tags   = true
-  notify_no_data = true
+  include_tags      = true
+  notify_no_data    = true
+  no_data_timeframe = 20
+  timeout_h         = 1
 
   tags = concat(
     local.monitor_tags,
@@ -180,12 +184,13 @@ resource "datadog_monitor" "latency_anomaly_monitor" {
   EOT
 
   # Query for anomaly detection on the 75th percentile latency
-  query = "avg(last_12h):anomalies(p75:trace.servlet.request{service:${each.value.service_name},env:${var.environment}}.as_count(), 'agile', 5, direction='both', interval=120, alert_window='last_30m', count_default_zero='true', seasonality='hourly') >=  0.75"
+  query = "avg(last_12h):anomalies(p75:trace.servlet.request{service:${each.value.service_name},env:${var.environment}}.as_count(), 'agile', 4, direction='both', interval=300, alert_window='last_30m', count_default_zero='true', seasonality='hourly') >= 0.75"
 
   monitor_thresholds {
     critical          = 0.75
-    critical_recovery = 0
+    critical_recovery = 0.25
     warning           = 0.5
+    warning_recovery  = 0.15
   }
 
   notify_no_data      = false
@@ -194,7 +199,7 @@ resource "datadog_monitor" "latency_anomaly_monitor" {
 
   monitor_threshold_windows {
     trigger_window  = "last_30m"
-    recovery_window = "last_15m"
+    recovery_window = "last_30m"
   }
 
   tags = concat(

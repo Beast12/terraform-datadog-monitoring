@@ -42,7 +42,8 @@ resource "datadog_monitor" "cpu_usage" {
     @${local.slack_channel}
   EOT
 
-  query = format("avg(last_5m):avg:%s{db%sidentifier:%s} > %d",
+  query = format(
+    "min(last_15m):avg:%s{db%sidentifier:%s} > %d",
     each.value.type == "aurora" ? "aws.rds.cpuutilization" : "aws.rds.cpuutilization",
     each.value.type == "aurora" ? "cluster" : "instance",
     each.value.identifier,
@@ -51,15 +52,16 @@ resource "datadog_monitor" "cpu_usage" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.cpu_percent
-    critical_recovery = each.value.thresholds.cpu_percent - 20
-    warning           = each.value.thresholds.cpu_percent - 15
-    warning_recovery  = each.value.thresholds.cpu_percent - 25
+    critical_recovery = each.value.thresholds.cpu_percent * 0.8
+    warning           = each.value.thresholds.cpu_percent * 0.85
+    warning_recovery  = each.value.thresholds.cpu_percent * 0.75
   }
 
 
   include_tags      = true
   notify_no_data    = true
-  no_data_timeframe = 10
+  no_data_timeframe = 20
+  evaluation_delay  = 900
 
   tags = concat(
     local.monitor_tags,
@@ -101,23 +103,25 @@ resource "datadog_monitor" "memory_usage" {
     @${local.slack_channel}
   EOT
 
-  query = format("avg(last_1h):avg:%s{db%sidentifier:%s} < %d",
+  query = format(
+    "min(last_15m):avg:%s{db%sidentifier:%s} < %d",
     each.value.type == "aurora" ? "aws.rds.freeable_memory" : "aws.rds.freeable_memory",
     each.value.type == "aurora" ? "cluster" : "instance",
     each.value.identifier,
-    each.value.thresholds.memory_threshold * 1048576 # Convert MB to bytes
+    each.value.thresholds.memory_threshold * 1048576
   )
 
   monitor_thresholds {
     critical          = each.value.thresholds.memory_threshold * 1048576
-    critical_recovery = each.value.thresholds.memory_threshold * 1.1 * 1048576 # 10% above critical
-    warning           = each.value.thresholds.memory_threshold * 1.2 * 1048576 # 20% above critical
-    warning_recovery  = each.value.thresholds.memory_threshold * 1.3 * 1048576 # 30% above critical
+    critical_recovery = each.value.thresholds.memory_threshold * 1.2 * 1048576 # 20% above critical
+    warning           = each.value.thresholds.memory_threshold * 1.4 * 1048576 # 40% above critical
+    warning_recovery  = each.value.thresholds.memory_threshold * 1.6 * 1048576 # 60% above critical
   }
 
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
+  evaluation_delay    = 900
 
   tags = concat(
     local.monitor_tags,
@@ -159,7 +163,8 @@ resource "datadog_monitor" "connections" {
     @${local.slack_channel}
   EOT
 
-  query = format("avg(last_5m):avg:%s{db%sidentifier:%s} > %d",
+  query = format(
+    "avg(last_15m):avg:%s{db%sidentifier:%s} > %d",
     each.value.type == "aurora" ? "aws.rds.database_connections" : "aws.rds.database_connections",
     each.value.type == "aurora" ? "cluster" : "instance",
     each.value.identifier,
@@ -168,15 +173,78 @@ resource "datadog_monitor" "connections" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.connection_threshold
-    critical_recovery = each.value.thresholds.connection_threshold * 0.7
-    warning           = each.value.thresholds.connection_threshold * 0.8
-    warning_recovery  = each.value.thresholds.connection_threshold * 0.6
+    critical_recovery = floor(each.value.thresholds.connection_threshold * 0.8)
+    warning           = floor(each.value.thresholds.connection_threshold * 0.85)
+    warning_recovery  = floor(each.value.thresholds.connection_threshold * 0.75)
   }
 
 
   include_tags      = true
   notify_no_data    = true
-  no_data_timeframe = 10
+  no_data_timeframe = 20
+  evaluation_delay  = 600
+
+  tags = concat(
+    local.monitor_tags,
+    [for k, v in each.value.tags : "${k}:${v}"],
+    [
+      "database:${each.value.name}",
+      "type:${each.value.type}",
+      "service:${each.value.service_name}",
+    ]
+  )
+
+  priority = each.value.alert_settings.priority
+}
+
+# IOPS Monitor
+resource "datadog_monitor" "iops_usage" {
+  for_each = var.databases
+
+  name    = "[${var.environment}] RDS ${each.value.name} - High IOPS Usage"
+  type    = "metric alert"
+  message = <<-EOT
+    ## Database ${each.value.name} is experiencing high IOPS usage
+
+    Current IOPS: {{value}}
+    Threshold: ${each.value.thresholds.iops_threshold}
+
+    This could indicate:
+    * Heavy write operations
+    * Missing indexes
+    * Table scans
+    * Inefficient queries
+
+    Please investigate:
+    * Slow query logs
+    * Query plans
+    * Index usage
+    * I/O statistics
+
+    @${local.slack_channel}
+  EOT
+
+  query = format(
+    "avg(last_15m):(avg:aws.rds.write_iops{db%sidentifier:%s} + avg:aws.rds.read_iops{db%sidentifier:%s}) > %d",
+    each.value.type == "aurora" ? "cluster" : "instance",
+    each.value.identifier,
+    each.value.type == "aurora" ? "cluster" : "instance",
+    each.value.identifier,
+    each.value.thresholds.iops_threshold
+  )
+
+  monitor_thresholds {
+    critical          = each.value.thresholds.iops_threshold
+    critical_recovery = floor(each.value.thresholds.iops_threshold * 0.8)
+    warning           = floor(each.value.thresholds.iops_threshold * 0.85)
+    warning_recovery  = floor(each.value.thresholds.iops_threshold * 0.75)
+  }
+
+  include_tags      = true
+  notify_no_data    = true
+  no_data_timeframe = 20
+  evaluation_delay  = 900
+  renotify_interval = 60
 
   tags = concat(
     local.monitor_tags,

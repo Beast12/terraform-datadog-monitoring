@@ -51,20 +51,20 @@ resource "datadog_monitor" "request_count" {
     @${local.slack_channel}
   EOT
 
-  query = "sum(last_5m):sum:aws.applicationelb.request_count{loadbalancer:${each.value.alb_name}}.as_count() > ${each.value.thresholds.request_count}"
+  query = "avg(last_15m):sum:aws.applicationelb.request_count{loadbalancer:${each.value.alb_name}}.as_rate() > ${each.value.thresholds.request_count}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.request_count
-    critical_recovery = floor(each.value.thresholds.request_count * 0.7)
-    warning           = floor(each.value.thresholds.request_count * 0.8)
-    warning_recovery  = floor(each.value.thresholds.request_count * 0.6)
+    critical_recovery = floor(each.value.thresholds.request_count * 0.8)
+    warning           = floor(each.value.thresholds.request_count * 0.9)
+    warning_recovery  = floor(each.value.thresholds.request_count * 0.7)
   }
 
   include_tags        = true
   notify_no_data      = false
   no_data_timeframe   = 10
   require_full_window = true
-  evaluation_delay    = 600
+  evaluation_delay    = 900
 
   tags = concat(
     local.monitor_tags,
@@ -106,20 +106,21 @@ resource "datadog_monitor" "latency" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):avg:aws.applicationelb.target_response_time.average{loadbalancer:${each.value.alb_name}} > ${each.value.thresholds.latency}"
+  query = "avg(last_15m):p90:aws.applicationelb.target_response_time.average{loadbalancer:${each.value.alb_name}} > ${each.value.thresholds.latency}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.latency
-    critical_recovery = floor(each.value.thresholds.latency * 0.7)
-    warning           = floor(each.value.thresholds.latency * 0.8)
-    warning_recovery  = floor(each.value.thresholds.latency * 0.6)
+    critical_recovery = floor(each.value.thresholds.latency * 0.8)
+    warning           = floor(each.value.thresholds.latency * 0.9)
+    warning_recovery  = floor(each.value.thresholds.latency * 0.7)
   }
 
 
   include_tags        = true
   notify_no_data      = false
-  no_data_timeframe   = 10
-  require_full_window = true
+  no_data_timeframe   = 20
+  require_full_window = false
+  evaluation_delay    = 900
 
   tags = concat(
     local.monitor_tags,
@@ -161,20 +162,23 @@ resource "datadog_monitor" "error_rate" {
     @${local.slack_channel}
   EOT
 
-  query = "sum(last_1h):sum:aws.applicationelb.httpcode_target_5xx{loadbalancer:${each.value.alb_name}}.as_count() / sum:aws.applicationelb.request_count{loadbalancer:${each.value.alb_name}}.as_count() * 100 > ${each.value.thresholds.error_rate}"
+  query = <<EOT
+    sum(last_15m):(sum:aws.applicationelb.httpcode_target_5xx{loadbalancer:${each.value.alb_name}}.as_count() / sum:aws.applicationelb.request_count{loadbalancer:${each.value.alb_name}}.as_count()) * 100 > ${each.value.thresholds.error_rate}
+  EOT
 
   monitor_thresholds {
     critical          = each.value.thresholds.error_rate
-    critical_recovery = floor(each.value.thresholds.error_rate * 0.5)
-    warning           = floor(each.value.thresholds.error_rate * 0.7)
-    warning_recovery  = floor(each.value.thresholds.error_rate * 0.4)
+    critical_recovery = floor(each.value.thresholds.error_rate * 0.6)
+    warning           = floor(each.value.thresholds.error_rate * 0.8)
+    warning_recovery  = floor(each.value.thresholds.error_rate * 0.5)
   }
 
 
   include_tags        = true
   notify_no_data      = false
-  no_data_timeframe   = 10
+  no_data_timeframe   = 20
   require_full_window = false
+  evaluation_delay    = 300
 
   tags = concat(
     local.monitor_tags,

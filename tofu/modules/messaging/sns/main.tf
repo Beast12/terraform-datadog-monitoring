@@ -23,36 +23,49 @@ resource "datadog_monitor" "message_count" {
   type    = "metric alert"
   message = <<-EOT
     ## Topic ${each.value.name} has too many messages
-
+  
     Current message count: {{value}} messages
     Threshold: ${each.value.thresholds.message_count_threshold} messages
-
+    
+    Time window: {{timeframe}}
+    Alert triggering value: {{value}}
+    Warning threshold: ${each.value.thresholds.message_count_threshold * 0.8}
+    
     This could indicate:
     * High message volume
     * Unprocessed messages
     * Consumer scaling issues
-
+    
     Please investigate:
     * Consumer logs
     * Processing rate
     * Input rate
-
+    
+    Alert Context:
+    * Environment: ${var.environment}
+    * Topic: ${each.value.topic_name}
+    * Service: ${each.value.service_name}
+    
     @${local.slack_channel}
   EOT
 
-  query = "max(last_5m):sum:aws.sns.number_of_messages_delivered{topicname:${each.value.topic_name}} > ${each.value.thresholds.message_count_threshold}"
+  query = "avg(last_15m):sum:aws.sns.number_of_messages_published{topicname:${each.value.topic_name}}.as_rate().rollup(avg, 900) > ${each.value.thresholds.message_count_threshold}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.message_count_threshold
-    critical_recovery = each.value.thresholds.message_count_threshold * 0.7
-    warning           = each.value.thresholds.message_count_threshold * 0.8
-    warning_recovery  = each.value.thresholds.message_count_threshold * 0.6
+    critical_recovery = floor(each.value.thresholds.message_count_threshold * 0.7)
+    warning           = floor(each.value.thresholds.message_count_threshold * 0.8)
+    warning_recovery  = floor(each.value.thresholds.message_count_threshold * 0.6)
   }
 
 
   include_tags        = true
+  no_data_timeframe   = 20
   notify_no_data      = false
   require_full_window = false
+  evaluation_delay    = 900
+  timeout_h           = 24
+  new_group_delay     = 300
 
   tags = concat(
     local.monitor_tags,
@@ -89,19 +102,23 @@ resource "datadog_monitor" "oldest_message_age" {
     @${local.slack_channel}
   EOT
 
-  query = "max(last_5m):max:aws.sns.oldest_message_age{topicname:${each.value.topic_name}} > ${each.value.thresholds.age_threshold}"
+  query = "avg(last_10m):percentile(aws.sns.oldest_message_age{topicname:${each.value.topic_name}}, 95).rollup(max, 600) > ${each.value.thresholds.age_threshold}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.age_threshold
-    critical_recovery = each.value.thresholds.age_threshold * 0.7
-    warning           = each.value.thresholds.age_threshold * 0.8
-    warning_recovery  = each.value.thresholds.age_threshold * 0.6
+    critical_recovery = each.value.thresholds.age_threshold * 0.6
+    warning           = each.value.thresholds.age_threshold * 0.7
+    warning_recovery  = each.value.thresholds.age_threshold * 0.5
   }
 
 
   include_tags        = true
+  no_data_timeframe   = 20
   notify_no_data      = false
   require_full_window = false
+  evaluation_delay    = 900
+  timeout_h           = 24
+  new_group_delay     = 300
 
   tags = concat(
     local.monitor_tags,
@@ -109,6 +126,134 @@ resource "datadog_monitor" "oldest_message_age" {
     [
       "topic:${each.value.name}",
       "service:${each.value.service_name}" # Unified service tagging
+    ]
+  )
+
+  priority = each.value.alert_settings.priority
+}
+
+# Monitor for failed message deliveries
+resource "datadog_monitor" "failed_deliveries" {
+  for_each = var.topics
+
+  name    = "[${var.environment}] SNS ${each.value.name} - Failed Message Deliveries"
+  type    = "metric alert"
+  message = <<-EOT
+    ## Topic ${each.value.name} has failed message deliveries
+
+    Current failure rate: {{value}}%
+    Time window: {{timeframe}}
+
+    This could indicate:
+    * Subscriber endpoint issues
+    * Network connectivity problems
+    * Permission/authentication failures
+
+    Please investigate:
+    * Subscriber endpoint health
+    * SNS delivery logs
+    * Network connectivity
+    * IAM permissions
+
+    Alert Context:
+    * Environment: ${var.environment}
+    * Topic: ${each.value.topic_name}
+    * Service: ${each.value.service_name}
+
+    @${local.slack_channel}
+  EOT
+
+  query = "sum(last_10m):( sum:aws.sns.number_of_notifications_failed{topicname:${each.value.topic_name}} / ( sum:aws.sns.number_of_notifications_delivered{topicname:${each.value.topic_name}} + sum:aws.sns.number_of_notifications_failed{topicname:${each.value.topic_name}} + 1 )) * 100 > 5"
+
+  monitor_thresholds {
+    critical          = 5 # 5% failure rate
+    critical_recovery = 3
+    warning           = 3
+    warning_recovery  = 1
+  }
+
+  include_tags        = true
+  notify_no_data      = false
+  require_full_window = false
+  evaluation_delay    = 900
+  renotify_interval   = 60
+  timeout_h           = 24
+  new_group_delay     = 300
+
+  tags = concat(
+    local.monitor_tags,
+    [for k, v in each.value.tags : "${k}:${v}"],
+    [
+      "topic:${each.value.name}",
+      "service:${each.value.service_name}"
+    ]
+  )
+
+  priority = each.value.alert_settings.priority
+}
+
+# Monitor for sudden drops in message volume
+resource "datadog_monitor" "message_volume_drop" {
+  for_each = var.topics
+
+  name    = "[${var.environment}] SNS ${each.value.name} - Message Volume Drop"
+  type    = "query alert"
+  message = <<-EOT
+    ## Topic ${each.value.name} has experienced a significant drop in message volume
+
+    Current change in volume: {{value}}%
+    Time window: {{timeframe}}
+
+    This could indicate:
+    * Publisher service issues
+    * Network connectivity problems
+    * Infrastructure problems
+    * Unexpected application behavior
+
+    Please investigate:
+    * Publisher service health
+    * Application logs
+    * Recent deployments
+    * Infrastructure status
+
+    Alert Context:
+    * Environment: ${var.environment}
+    * Topic: ${each.value.topic_name}
+    * Service: ${each.value.service_name}
+
+    @${local.slack_channel}
+  EOT
+
+  # Comparing current 15min to previous 4 hours, alerting on 70% drop
+  query = "pct_change(avg(last_15m),last_4h):sum:aws.sns.number_of_messages_published{topicname:${each.value.topic_name}}.rollup(sum, 900) < -70"
+
+  monitor_thresholds {
+    critical          = -70 # 70% drop
+    critical_recovery = -50 # Recover when drop is less than 50%
+    warning           = -50 # Warn at 50% drop
+    warning_recovery  = -30 # Recover warning when drop is less than 30%
+  }
+
+  include_tags        = true
+  notify_no_data      = true
+  no_data_timeframe   = 30
+  require_full_window = false
+  evaluation_delay    = 900
+  renotify_interval   = 60
+  timeout_h           = 24
+  new_group_delay     = 300
+
+  monitor_threshold_windows {
+    trigger_window  = "last_15m"
+    recovery_window = "last_15m"
+  }
+
+  tags = concat(
+    local.monitor_tags,
+    [for k, v in each.value.tags : "${k}:${v}"],
+    [
+      "topic:${each.value.name}",
+      "service:${each.value.service_name}"
     ]
   )
 

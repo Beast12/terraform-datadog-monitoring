@@ -42,20 +42,21 @@ resource "datadog_monitor" "cpu_usage" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_5m):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}} > ${each.value.thresholds.cpu_percent}"
+  query = "avg(last_15m):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}*} by {container_id} > ${each.value.thresholds.cpu_percent}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.cpu_percent
-    critical_recovery = each.value.thresholds.cpu_percent - 20
-    warning           = each.value.thresholds.cpu_percent - 15
-    warning_recovery  = each.value.thresholds.cpu_percent - 25
+    critical_recovery = each.value.thresholds.cpu_percent * 0.8
+    warning           = each.value.thresholds.cpu_percent * 0.85
+    warning_recovery  = each.value.thresholds.cpu_percent * 0.75
   }
 
 
   include_tags        = true
   notify_no_data      = false
-  no_data_timeframe   = 10
+  no_data_timeframe   = 20
   require_full_window = false
+  evaluation_delay    = 900
 
   tags = concat(
     local.monitor_tags,
@@ -98,7 +99,7 @@ resource "datadog_monitor" "memory_usage" {
   EOT
 
   # Query to calculate memory usage as a percentage of memory_available in GB
-  query = "avg(last_5m):avg:ecs.fargate.mem.usage{cluster_name:${each.value.cluster},service:${each.value.name}} > ${(each.value.thresholds.memory_available * 1024 * 1024) * (each.value.thresholds.memory_percent / 100)}"
+  query = "avg(last_5m):avg:ecs.fargate.mem.usage{cluster_name:${each.value.cluster},service:${each.value.name}*} > ${(each.value.thresholds.memory_available * 1024 * 1024) * (each.value.thresholds.memory_percent / 100)}"
 
   monitor_thresholds {
     critical          = (each.value.thresholds.memory_available * 1024 * 1024) * (each.value.thresholds.memory_percent / 100)
@@ -153,20 +154,26 @@ resource "datadog_monitor" "network_errors" {
     @${local.slack_channel}
   EOT
 
-  query = "sum(last_5m):(avg:ecs.fargate.net.rcvd_errors{cluster_name:${each.value.cluster},service:${each.value.name}} + avg:ecs.fargate.net.sent_errors{cluster_name:${each.value.cluster},service:${each.value.name}}) > ${each.value.thresholds.network_errors}"
+  query = <<EOT
+    avg(last_15m):(
+      sum:ecs.fargate.net.rcvd_errors{cluster_name:${each.value.cluster},service:${each.value.name}*}.as_rate() +
+      sum:ecs.fargate.net.sent_errors{cluster_name:${each.value.cluster},service:${each.value.name}*}.as_rate()
+    ) > ${each.value.thresholds.network_errors}
+    EOT
 
   monitor_thresholds {
     critical          = each.value.thresholds.network_errors
-    critical_recovery = each.value.thresholds.network_errors * 0.7
-    warning           = each.value.thresholds.network_errors / 2
-    warning_recovery  = each.value.thresholds.network_errors * 0.3
+    critical_recovery = floor(each.value.thresholds.network_errors * 0.6)
+    warning           = floor(each.value.thresholds.network_errors * 0.7)
+    warning_recovery  = floor(each.value.thresholds.network_errors * 0.5)
   }
 
 
   include_tags        = true
   notify_no_data      = false
-  no_data_timeframe   = 10
+  no_data_timeframe   = 20
   require_full_window = false
+  evaluation_delay    = 300
 
   tags = concat(
     local.monitor_tags,
@@ -175,6 +182,60 @@ resource "datadog_monitor" "network_errors" {
       "service:${each.value.name}",
       "cluster:${each.value.cluster}",
       "service:${each.value.name}"
+    ]
+  )
+
+  priority = each.value.alert_settings.priority
+}
+
+# Container Health Monitor - Production Only
+resource "datadog_monitor" "container_health" {
+  # Only create this monitor when environment is "prd"
+  for_each = var.environment == "prd" ? var.services : {}
+
+  name    = "[${var.environment}] ECS Service ${each.value.name} - Container Health Check Failures"
+  type    = "metric alert"
+  message = <<-EOT
+    ## Service ${each.value.name} is experiencing container health check failures
+
+    Current Running Task Count: {{value}}
+    Minimum Expected Tasks: ${floor(each.value.thresholds.desired_count * 0.5)}
+    
+    This could indicate:
+    * Application crashes
+    * Deadlocks
+    * Configuration issues
+    * Resource exhaustion
+
+    Please investigate:
+    * Container logs
+    * Health check configuration
+    * Resource metrics
+    * Recent deployments
+    * ECS Events and Service status
+
+    @${local.slack_channel}
+  EOT
+
+  query = "sum(last_5m):avg:ecs.containerinsights.RunningTaskCount{clustername:${each.value.cluster},servicename:${each.value.name}*} < 0.9"
+
+  monitor_thresholds {
+    critical          = 0.9 # Alert when less than 1 container is running
+    critical_recovery = 1   # Recover when 1 container is running
+  }
+
+  include_tags      = true
+  notify_no_data    = false
+  no_data_timeframe = 20
+  evaluation_delay  = 300
+
+  tags = concat(
+    local.monitor_tags,
+    [for k, v in each.value.tags : "${k}:${v}"],
+    [
+      "service:${each.value.name}",
+      "cluster:${each.value.cluster}",
+      "environment:prd"
     ]
   )
 

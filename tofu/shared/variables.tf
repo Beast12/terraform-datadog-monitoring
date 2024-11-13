@@ -23,22 +23,18 @@ variable "services" {
   type = map(object({
     name    = string
     cluster = string
-    thresholds = object({ # Thresholds for alerting
+    thresholds = object({
       cpu_percent      = number
-      memory_percent   = number
+      memory_percent   = number # Critical threshold level in percent
       memory_available = number # Total memory allocated to the service (in MB)
       network_errors   = number
-      # Make ALB thresholds optional
-      request_count = optional(number) # Optional for ALB
-      latency       = optional(number) # Optional for ALB
-      error_rate    = optional(number) # Optional for ALB
+      desired_count    = number
     })
-    alert_settings = object({ # Alert settings
-      priority     = string   # Priority for alerting
+    alert_settings = object({
+      priority     = string
       include_tags = bool
     })
-    tags     = map(string)      # Additional tags for the service
-    alb_name = optional(string) # ALB name, optional for services
+    tags = map(string)
   }))
 }
 
@@ -64,13 +60,14 @@ variable "databases" {
   description = "Map of databases to monitor"
   type = map(object({
     name         = string
-    type         = string
-    identifier   = string
+    type         = string # "aurora" or "rds"
+    identifier   = string # cluster identifier for Aurora, instance identifier for RDS
     service_name = string
     thresholds = object({
       cpu_percent          = number
       memory_threshold     = number
       connection_threshold = number
+      iops_threshold       = number
     })
     alert_settings = object({
       priority     = string
