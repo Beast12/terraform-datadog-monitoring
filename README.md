@@ -47,20 +47,147 @@ pip install -r requirements.txt
 Create a YAML configuration file in `monitor_configs/applications/`:
 
 ```yaml
-name: "your-app"
-description: "Your Application Description"
-type: "java"  # or "node"
+name: "example-app-1"
+description: "Example API Service"
+type: "java"
 monitor_sets:
   infrastructure:
     ecs:
       enabled: true
       settings:
         services:
-          your-service:
+          example-app-1:
             thresholds:
               cpu_percent: 85
               memory_percent: 90
-# ... (additional configuration as needed)
+              memory_available: 1024
+              network_errors: 20
+            alert_settings:
+              include_tags: true
+              priority: "3"
+          example-app-2:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    alb:
+      enabled: true
+      settings:
+        services:
+          example-app-1:
+            alb_name: "example-app-1-alb"
+            thresholds:
+              request_count: 100
+              latency: 200
+              error_rate: 20
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    db:
+      enabled: true
+      settings:
+        databases:
+          example-app-1:
+            type: "rds"
+            identifier: "example-app-1-placeholder"
+            service_name: "example-app-1"
+            thresholds:
+              cpu_percent: 80
+              memory_threshold: 2
+              connection_threshold: 100
+            alert_settings:
+              include_tags: true
+              priority: "3"
+  messaging:
+    sqs:
+      enabled: true
+      settings:
+        queues:
+          example-app-1-application-events:
+            queue_name: "example-app-1-application-events"
+            dlq_name: "example-app-1-application-events-dlq"
+            service_name: "example-app-1"
+            thresholds:
+              age_threshold: 300
+              depth_threshold: 1000
+              dlq_threshold: 1
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    sns:
+      enabled: false
+      settings:
+        topics:
+          example-app-1:
+            topic_name: "example-app-1-topic"
+            service_name: "example-app-1"
+            thresholds:
+              message_count_threshold: 100
+              age_threshold: 300
+            alert_settings:
+              include_tags: true
+              priority: "3"
+  application:
+    apm:
+      enabled: true
+      services:
+        example-app-1:
+          thresholds:
+            latency: 200 # in ms
+            error_rate: 0.05 # 5% error rate
+            throughput: 100 # requests per minute
+          alert_settings:
+            priority: "3"
+            include_tags: true
+        example-app-2:
+          enabled: false
+          thresholds:
+            latency: 250
+            error_rate: 0.07
+            throughput: 120
+          alert_settings:
+            priority: "3"
+            include_tags: true
+    java:
+      enabled: true
+      services:
+        example-app-1:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200 # Set your desired threshold for minor GC
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+        example-app-2:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200 # Set your desired threshold for minor GC
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+  logs:
+    enabled: true
+    services:
+      example-app-1:
+        custom_log_lines:
+          - "Error getting balance for wallet"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
+      example-app-2:
+        custom_log_lines:
+          - "io.venly.tokenapi.common.exception.WalletBusinessException: An unexpected error occurred. Please contact support!"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
 ```
 
 3. **Set Environment Overrides**
@@ -68,12 +195,97 @@ monitor_sets:
 Create environment-specific settings in `monitor_configs/environments/`:
 
 ```yaml
-environment: "staging"
-cluster_name: "your-cluster-name"
+environment: "qa"
+cluster_name: "example-app-1-qa-cluster"
 notification_channels:
   infrastructure:
-    ecs: "slack-ecs-alerts"
-# ... (additional settings as needed)
+    ecs: "slack-ecs-alerts-p2"
+    alb: "slack-elb-alerts-p2"
+    rds: "slack-rds-alerts-p2"
+  messaging:
+    sns: "slack-sns-alerts-p2"
+    sqs: "slack-sqs-alerts-p2"
+  application:
+    java: "slack-apm-alerts-p2"
+    node: "slack-apm-alerts-p2"
+    apm: "slack-apm-alerts-p2"
+  logs: "slack-logs-alerts-p2"
+  default: "slack-ecs-alerts-p2"
+
+threshold_overrides:
+  infrastructure:
+    ecs:
+      example-app-1:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 2048
+        network_errors: 10
+        alert_settings:
+          priority: "4"
+      example-app-2:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 2048
+        network_errors: 15
+        alert_settings:
+          priority: "3"
+    alb:
+      example-app-1:
+        enabled: false
+    db:
+      enabled: false
+  messaging:
+    sqs:
+      enabled: false
+    sns:
+      enabled: false
+  application:
+    apm:
+      enabled: true
+      services:
+        example-app-1:
+          thresholds:
+            latency: 150
+            error_rate: 10
+            throughput: 90
+          alert_settings:
+            priority: "4"
+        example-app-2:
+          thresholds:
+            latency: 220
+            error_rate: 10
+            throughput: 110
+          alert_settings:
+            priority: "4"
+    java:
+      enabled: true
+      services:
+        example-app-1:
+          jvm:
+            thresholds:
+              jvm_memory_used: 2048
+            alert_settings:
+              priority: "4"
+        example-app-2:
+          jvm:
+            thresholds:
+              jvm_memory_used: 2048
+            alert_settings:
+              priority: "4"
+  logs:
+    services:
+      example-app-1:
+        thresholds:
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30
+      example-app-2:
+        thresholds:
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30
 ```
 
 4. **Generate and Apply Configuration**
