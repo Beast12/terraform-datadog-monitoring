@@ -110,7 +110,7 @@ monitor_sets:
             service_name: "example-app-1"
             thresholds:
               cpu_percent: 80
-              memory_threshold: 2
+              memory_threshold: 2048
               connection_threshold: 100
             alert_settings:
               include_tags: true
