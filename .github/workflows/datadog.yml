@@ -1,0 +1,256 @@
+name: Deploy Datadog Monitoring
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
+      application:
+        description: "Application to configure"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - example-app-1
+          - example-app-2
+      environment:
+        description: "Environment to target"
+        required: true
+        type: choice
+        options:
+          - all
+          - qa
+          - staging
+          - prd
+env:
+  AWS_REGION: eu-west-1
+  STATE_BUCKET: s3-state-bucket
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  deployments: read
+  id-token: write
+  issues: read
+  discussions: read
+  packages: read
+  pages: read
+  pull-requests: read
+  repository-projects: read
+  security-events: read
+  statuses: read
+run-name: 🐶 ${{ inputs.action }} Datadog Infrastructure Monitoring ${{ inputs.application }} ${{ inputs.environment }}
+
+jobs:
+  determine-matrix:
+    name: Determine Target Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      environments: ${{ steps.set-matrix.outputs.environments }}
+      applications: ${{ steps.set-matrix.outputs.applications }}
+    steps:
+      - id: set-matrix
+        run: |
+          # Determine environments
+          if [ "${{ github.event.inputs.environment }}" == "all" ]; then
+            echo "environments=['qa', 'staging', 'prd']" >> $GITHUB_OUTPUT
+          else
+            echo "environments=['${{ github.event.inputs.environment || 'qa' }}']" >> $GITHUB_OUTPUT
+          fi
+
+          # Determine applications
+          if [ "${{ github.event.inputs.application }}" == "all" ]; then
+            echo "applications=['example-app-1', 'example-app-2']" >> $GITHUB_OUTPUT
+          else
+            echo "applications=['${{ github.event.inputs.application }}']" >> $GITHUB_OUTPUT
+          fi
+
+  validate-configs:
+    # Only run validation if this is a normal deployment, not a destroy
+    if: github.event.inputs.action != 'destroy'
+    name: Validate Configs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml==6.0.1 jsonschema==4.21.1
+
+      - name: Validate monitoring configurations
+        run: python scripts/validate_configs.py
+
+  plan:
+    name: Plan Changes
+    needs: [validate-configs, determine-matrix]
+    if: always() && (needs.validate-configs.result == 'success' || needs.validate-configs.result == 'skipped')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: ${{ fromJson(needs.determine-matrix.outputs.environments) }}
+        application: ${{ fromJson(needs.determine-matrix.outputs.applications) }}
+      # Allow other environments/applications to continue if one fails
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.RESOURCES_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: OIDCSession
+          mask-aws-account-id: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml==6.0.1
+
+      # Only generate vars if we're not destroying
+      - name: Generate Tofu Variables
+        run: |
+          python scripts/generate_tf_vars.py \
+            --app-name ${{ matrix.application }} \
+            --env ${{ matrix.environment }} \
+            --apps-dir monitor_configs/applications \
+            --env-dir monitor_configs/environments \
+            --output tofu/environments/${{ matrix.environment }}/terraform.tfvars.json
+
+      - name: Run Tofu Init
+        env:
+          # Datadog provider environment variables
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          DATADOG_HOST: "https://api.datadoghq.eu"
+          DD_SITE: "datadoghq.eu"
+          DD_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DD_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          # OpenTofu variables
+          TF_VAR_datadog_api_key: ${{ secrets.DATADOG_API_KEY }}
+          TF_VAR_datadog_app_key: ${{ secrets.DATADOG_APP_KEY }}
+        run: |
+          cd tofu/environments/${{ matrix.environment }}
+          tofu init \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="key=monitoring/${{ matrix.environment }}/${{ matrix.application }}/terraform.tfstate"
+
+      - name: Run Tofu Plan
+        env:
+          # Datadog provider environment variables
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          DATADOG_HOST: "https://api.datadoghq.eu"
+          DD_SITE: "datadoghq.eu"
+          DD_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DD_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          # OpenTofu variables
+          TF_VAR_datadog_api_key: ${{ secrets.DATADOG_API_KEY }}
+          TF_VAR_datadog_app_key: ${{ secrets.DATADOG_APP_KEY }}
+        run: |
+          cd tofu/environments/${{ matrix.environment }}
+          if [ "${{ github.event.inputs.action }}" == "destroy" ]; then
+            tofu plan -destroy -no-color -input=false -out=tfplan
+          else
+            tofu plan -no-color -input=false -out=tfplan
+          fi
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tofu-plan-${{ matrix.environment }}-${{ matrix.application }}
+          path: tofu/environments/${{ matrix.environment }}/tfplan
+          retention-days: 1
+
+  apply:
+    name: Apply Changes
+    needs: [plan, determine-matrix]
+    if: |
+      always() && needs.plan.result == 'success' && (
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') || 
+        github.event_name == 'workflow_dispatch'
+      )
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: ${{ fromJson(needs.determine-matrix.outputs.environments) }}
+        application: ${{ fromJson(needs.determine-matrix.outputs.applications) }}
+      # Allow other environments/applications to continue if one fails
+      fail-fast: false
+    environment:
+      name: ${{ matrix.environment }}
+      url: https://app.datadoghq.eu/
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.RESOURCES_DEPLOY_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: false
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tofu-plan-${{ matrix.environment }}-${{ matrix.application }}
+          path: tofu/environments/${{ matrix.environment }}
+
+      - name: Run Tofu Init
+        env:
+          # Datadog provider environment variables
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          DATADOG_HOST: "https://api.datadoghq.eu"
+          DD_SITE: "datadoghq.eu"
+          DD_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DD_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          # OpenTofu variables
+          TF_VAR_datadog_api_key: ${{ secrets.DATADOG_API_KEY }}
+          TF_VAR_datadog_app_key: ${{ secrets.DATADOG_APP_KEY }}
+        run: |
+          cd tofu/environments/${{ matrix.environment }}
+          tofu init \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="key=monitoring/${{ matrix.environment }}/${{ matrix.application }}/terraform.tfstate"
+
+      - name: Run Tofu Apply
+        env:
+          # Datadog provider environment variables
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          DATADOG_HOST: "https://api.datadoghq.eu"
+          DD_SITE: "datadoghq.eu"
+          DD_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DD_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          # OpenTofu variables
+          TF_VAR_datadog_api_key: ${{ secrets.DATADOG_API_KEY }}
+          TF_VAR_datadog_app_key: ${{ secrets.DATADOG_APP_KEY }}
+        run: |
+          cd tofu/environments/${{ matrix.environment }}
+          if [ "${{ github.event.inputs.action }}" == "destroy" ]; then
+            echo "⚠️ DESTROYING ALL MONITORS FOR ${{ matrix.application }} IN ${{ matrix.environment }} ⚠️"
+            tofu apply -destroy -auto-approve -input=false tfplan
+          else
+            tofu apply -auto-approve -input=false tfplan
+          fi
