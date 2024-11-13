@@ -28,6 +28,130 @@ A comprehensive Terraform solution for setting up and managing Datadog monitorin
 - AWS credentials with appropriate permissions
 - Slack workspace (for notifications)
 
+## Automated Deployment with GitHub Actions
+
+This project is designed to be deployed automatically using GitHub Actions. The workflow supports multiple environments and applications, with built-in validation and safety checks.
+
+### Workflow Features
+
+- **Environment Support**: Deployments to `qa`, `staging`, and `production`
+- **Multiple Applications**: Support for deploying monitoring for multiple applications
+- **Action Types**: Supports both `apply` and `destroy` operations
+- **Configuration Validation**: Automated validation of monitoring configurations
+- **State Management**: Uses S3 backend for Terraform state management
+- **Security**: Configured with proper permissions and secret management
+
+### Required Secrets
+
+```yaml
+DATADOG_API_KEY: Your Datadog API key
+DATADOG_APP_KEY: Your Datadog application key
+RESOURCES_DEPLOY_ROLE: AWS IAM role ARN for deployment
+```
+
+### Workflow Configuration
+
+```yaml
+name: Deploy Datadog Monitoring
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
+      application:
+        description: "Application to configure"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - example-app-1
+          - example-app-2
+      environment:
+        description: "Environment to target"
+        required: true
+        type: choice
+        options:
+          - all
+          - qa
+          - staging
+          - prd
+```
+
+### Workflow Jobs
+
+1. **Determine Matrix**: Sets up the deployment matrix for environments and applications
+2. **Validate Configs**: Validates monitoring configurations before deployment
+3. **Plan**: Generates and shows the Terraform plan for each environment/application combination
+4. **Apply**: Applies the changes with appropriate approvals
+
+### Environment Variables
+
+```yaml
+env:
+  AWS_REGION: eu-west-1
+  STATE_BUCKET: s3-state-bucket
+```
+
+### Usage
+
+1. **Manual Trigger**:
+   - Go to the "Actions" tab in your GitHub repository
+   - Select "Deploy Datadog Monitoring"
+   - Choose the desired options:
+     - Action: apply/destroy
+     - Application: specific app or all
+     - Environment: specific environment or all
+   - Click "Run workflow"
+
+2. **Required Permissions**:
+
+   ```yaml
+   permissions:
+     actions: read
+     checks: read
+     contents: write
+     deployments: read
+     id-token: write
+     issues: read
+     discussions: read
+     packages: read
+     pages: read
+     pull-requests: read
+     repository-projects: read
+     security-events: read
+     statuses: read
+   ```
+
+3. **State Management**:
+   - Terraform state is stored in S3
+   - State files are organized by environment and application
+   - Path format: `monitoring/<environment>/<application>/terraform.tfstate`
+
+### Safety Features
+
+1. **Configuration Validation**:
+   - Automated YAML schema validation
+   - Python-based configuration verification
+   - Pre-deployment checks
+
+2. **Environment Protection**:
+   - Environment-specific approvals
+   - Separate state files per environment
+   - Role-based access control
+
+3. **Failure Handling**:
+   - Matrix-based deployments with `fail-fast: false`
+   - Individual environment/application combination can fail independently
+   - Artifact preservation for debugging
+
 ## Quick Start
 
 1. **Clone and Setup**
