@@ -190,6 +190,7 @@ variable "logs" {
   }))
 }
 
+
 variable "notification_channels" {
   description = "Notification channel configuration"
   type = object({

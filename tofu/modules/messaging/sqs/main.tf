@@ -184,7 +184,7 @@ resource "datadog_monitor" "dlq_messages" {
   monitor_thresholds {
     critical          = each.value.thresholds.dlq_threshold
     critical_recovery = max(1, floor(each.value.thresholds.dlq_threshold * 0.3))
-    warning           = max(1, floor(each.value.thresholds.dlq_threshold * 0.5))
+    warning           = max(2, floor(each.value.thresholds.dlq_threshold * 0.5)) # Changed from 1 to 2 in max()
     warning_recovery  = max(1, floor(each.value.thresholds.dlq_threshold * 0.2))
   }
 

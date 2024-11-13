@@ -35,7 +35,7 @@ threshold_overrides:
     alb:
       nft-api:
         alb_name: "app/nft-api-prd-external/63dc6b93a026907c"
-        request_count: 25000
+        request_count: 50
         latency: 300
         error_rate: 10
         alert_settings:
@@ -57,7 +57,7 @@ threshold_overrides:
         dlq_name: "nft-api-application-events-dlq-prd"
         age_threshold: 400
         depth_threshold: 1500
-        dlq_threshold: 1
+        dlq_threshold: 5
         alert_settings:
           priority: "2"
     sns:

@@ -1,0 +1,241 @@
+name: "business-portal"
+description: "BUSINESS PORTAL Service"
+type: "java"
+monitor_sets:
+  infrastructure:
+    ecs:
+      enabled: true
+      settings:
+        services:
+          business-portal-api:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+              desired_count: 2
+            alert_settings:
+              include_tags: true
+              priority: "3"
+          business-portal-notification:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+              desired_count: 2
+            alert_settings:
+              include_tags: true
+              priority: "3"
+          business-portal-ui:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+              desired_count: 2
+            alert_settings:
+              include_tags: true
+              priority: "3"
+          business-portal-webhook:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+              desired_count: 1
+            alert_settings:
+              include_tags: true
+              priority: "3"
+          business-portal-worker:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+              desired_count: 1
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    alb:
+      enabled: true
+      settings:
+        services:
+          business-portal:
+            alb_name: "app/busininess-portal-prd-external/5526b80959cc009f"
+            thresholds:
+              request_count: 100
+              latency: 200
+              error_rate: 20
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    db:
+      enabled: false
+  messaging:
+    sqs:
+      enabled: true
+      settings:
+        queues:
+          business-portal-subscriptions:
+            queue_name: "business-portal-subscriptions"
+            dlq_name: "business-portal-subscriptions-dlq"
+            service_name: "bp-api-prd-service"
+            thresholds:
+              age_threshold: 300
+              depth_threshold: 1000
+              dlq_threshold: 3
+            alert_settings:
+              include_tags: true
+              priority: "3"
+          bp-user-notifications:
+            queue_name: "bp-user-notifications-prd*"
+            service_name: "business-portal-notification"
+            thresholds:
+              age_threshold: 432000 # 5 Days
+              depth_threshold: 1000
+              dlq_threshold: 3
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    sns:
+      enabled: true
+      settings:
+        topics:
+          business-portal-notification:
+            topic_name: "business-portal-user-notifications"
+            service_name: "business-portal-notification"
+            thresholds:
+              message_count_threshold: 100
+              age_threshold: 300
+            alert_settings:
+              include_tags: true
+              priority: "3"
+  application:
+    apm:
+      enabled: true
+      services:
+        business-portal-api:
+          thresholds:
+            latency: 200 # in ms
+            error_rate: 0.05 # 5% error rate
+            throughput: 100 # requests per minute
+          alert_settings:
+            priority: "3"
+            include_tags: true
+        business-portal-notification:
+          thresholds:
+            latency: 200
+            error_rate: 0.05
+            throughput: 100
+          alert_settings:
+            priority: "3"
+            include_tags: true
+        business-portal-ui:
+          thresholds:
+            latency: 200
+            error_rate: 0.05
+            throughput: 100
+          alert_settings:
+            priority: "3"
+            include_tags: true
+        business-portal-webhook:
+          thresholds:
+            latency: 200
+            error_rate: 0.05
+            throughput: 100
+          alert_settings:
+            priority: "3"
+            include_tags: true
+        business-portal-worker:
+          thresholds:
+            latency: 200
+            error_rate: 0.05
+            throughput: 100
+          alert_settings:
+            priority: "3"
+            include_tags: true
+    java:
+      enabled: true
+      services:
+        business-portal-api:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+        business-portal-notification:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+        business-portal-webhook:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+        business-portal-worker:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+  logs:
+    enabled: true
+    services:
+      business-portal-api:
+        custom_log_lines:
+          - "Application run failed"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
+        alert_settings:
+          priority: "3"
+      business-portal-notification:
+        custom_log_lines:
+          - "Application run failed"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
+        alert_settings:
+          priority: "3"
+      business-portal-webhook:
+        custom_log_lines:
+          - "Application run failed"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
+        alert_settings:
+          priority: "3"
+      business-portal-worker:
+        custom_log_lines:
+          - "Application run failed"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
+        alert_settings:
+          priority: "3"
+      business-portal-ui:
+        custom_log_lines:
+          - "Application run failed"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
+        alert_settings:
+          priority: "3"

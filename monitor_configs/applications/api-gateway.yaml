@@ -1,0 +1,74 @@
+name: "api-gateway"
+description: "API GATEWAY Service"
+type: "java"
+monitor_sets:
+  infrastructure:
+    ecs:
+      enabled: true
+      settings:
+        services:
+          api-gateway:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+              desired_count: 2
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    alb:
+      enabled: true
+      settings:
+        services:
+          api-gateway:
+            alb_name: "app/api-gateway-prd-external/6df09623767f7bc6"
+            thresholds:
+              request_count: 10000
+              latency: 200
+              error_rate: 20
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    db:
+      enabled: false
+  messaging:
+    sqs:
+      enabled: false
+    sns:
+      enabled: false
+  application:
+    apm:
+      enabled: true
+      services:
+        api-gateway:
+          thresholds:
+            latency: 200 # in ms
+            error_rate: 0.05 # 5% error rate
+            throughput: 100 # requests per minute
+          alert_settings:
+            priority: "3"
+            include_tags: true
+    java:
+      enabled: true
+      services:
+        api-gateway:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200 # Set your desired threshold for minor GC
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+  logs:
+    enabled: true
+    services:
+      api-gateway:
+        custom_log_lines:
+          - "Handling DestinationNotFoundException"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
+        alert_settings:
+          priority: "3"

@@ -1,0 +1,198 @@
+---
+environment: "qa"
+cluster_name: "business-portal-qa-cluster"
+notification_channels:
+  infrastructure:
+    ecs: "slack-dd-ecs-alerts-p2"
+    alb: "slack-dd-elb-alerts-p2"
+    rds: "slack-dd-rds-alerts-p2"
+  messaging:
+    sns: "slack-dd-sns-alerts-p2"
+    sqs: "slack-dd-sqs-alerts-p2"
+  application:
+    java: "slack-dd-apm-alerts-p2"
+    node: "slack-dd-apm-alerts-p2"
+    apm: "slack-dd-apm-alerts-p2"
+  logs: "slack-dd-logs-alerts-p2"
+  default: "slack-dd-ecs-alerts-p2"
+
+threshold_overrides:
+  infrastructure:
+    ecs:
+      business-portal-api:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 1024
+        network_errors: 10
+        alert_settings:
+          priority: "4"
+      business-portal-notification:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 2048
+        network_errors: 10
+        alert_settings:
+          priority: "4"
+      business-portal-ui:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 2048
+        network_errors: 10
+        alert_settings:
+          priority: "4"
+      business-portal-webhook:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 2048
+        network_errors: 10
+        alert_settings:
+          priority: "4"
+      business-portal-worker:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 2048
+        network_errors: 10
+        alert_settings:
+          priority: "4"
+    alb:
+      business-portal:
+        enabled: false
+    db:
+      enabled: false
+  messaging:
+    sqs:
+      enabled: true
+      settings:
+        queues:
+          business-portal-subscriptions:
+            queue_name: "business-portal-subscriptions-qa"
+            dlq_name: "business-portal-subscriptions-qa-dlq"
+            service_name: "business-portal-api"
+            thresholds:
+              age_threshold: 300
+              depth_threshold: 1000
+              dlq_threshold: 3
+            alert_settings:
+              include_tags: true
+              priority: "3"
+          bp-user-notifications:
+            queue_name: "bp-user-notifications-qa*"
+            service_name: "business-portal-notification"
+            thresholds:
+              age_threshold: 300
+              depth_threshold: 1000
+              dlq_threshold: 3
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    sns:
+      enabled: true
+      settings:
+        topics:
+          business-portal-user-notifications:
+            topic_name: "business-portal-user-notifications-qa"
+            service_name: "business-portal-notification"
+            thresholds:
+              message_count_threshold: 100
+              age_threshold: 300
+            alert_settings:
+              include_tags: true
+              priority: "3"
+  application:
+    apm:
+      enabled: true
+      services:
+        business-portal-api:
+          thresholds:
+            latency: 150
+            error_rate: 10
+            throughput: 90
+          alert_settings:
+            priority: "4"
+        business-portal-notification:
+          thresholds:
+            latency: 150
+            error_rate: 10
+            throughput: 90
+          alert_settings:
+            priority: "4"
+        business-portal-ui:
+          thresholds:
+            latency: 150
+            error_rate: 10
+            throughput: 90
+          alert_settings:
+            priority: "4"
+        business-portal-webhook:
+          thresholds:
+            latency: 150
+            error_rate: 10
+            throughput: 90
+          alert_settings:
+            priority: "4"
+        business-portal-worker:
+          thresholds:
+            latency: 150
+            error_rate: 10
+            throughput: 90
+          alert_settings:
+            priority: "4"
+    java:
+      enabled: true
+      services:
+        business-portal-api:
+          jvm:
+            thresholds:
+              jvm_memory_used: 1024
+            alert_settings:
+              priority: "4"
+        business-portal-notification:
+          jvm:
+            thresholds:
+              jvm_memory_used: 2048
+            alert_settings:
+              priority: "4"
+        business-portal-webhook:
+          jvm:
+            thresholds:
+              jvm_memory_used: 2048
+            alert_settings:
+              priority: "4"
+        business-portal-worker:
+          jvm:
+            thresholds:
+              jvm_memory_used: 2048
+            alert_settings:
+              priority: "4"
+  logs:
+    services:
+      business-portal-api:
+        thresholds:
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30
+      business-portal-notification:
+        thresholds:
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30
+      business-portal-webhook:
+        thresholds:
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30
+      business-portal-worker:
+        thresholds:
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30
+      business-portal-ui:
+        thresholds:
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30

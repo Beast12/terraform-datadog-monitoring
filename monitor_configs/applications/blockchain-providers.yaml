@@ -12,6 +12,7 @@ monitor_sets:
               cpu_percent: 85
               memory_percent: 90
               network_errors: 20
+              desired_count: 2
             alert_settings:
               include_tags: true
               priority: "3"
@@ -20,6 +21,7 @@ monitor_sets:
               cpu_percent: 85
               memory_percent: 90
               network_errors: 20
+              desired_count: 2
             alert_settings:
               include_tags: true
               priority: "3"
@@ -28,6 +30,7 @@ monitor_sets:
               cpu_percent: 85
               memory_percent: 90
               network_errors: 20
+              desired_count: 2
             alert_settings:
               include_tags: true
               priority: "3"
@@ -36,6 +39,7 @@ monitor_sets:
               cpu_percent: 85
               memory_percent: 90
               network_errors: 20
+              desired_count: 2
             alert_settings:
               include_tags: true
               priority: "3"
@@ -44,6 +48,7 @@ monitor_sets:
               cpu_percent: 85
               memory_percent: 90
               network_errors: 20
+              desired_count: 2
             alert_settings:
               include_tags: true
               priority: "3"
@@ -52,6 +57,7 @@ monitor_sets:
               cpu_percent: 85
               memory_percent: 90
               network_errors: 20
+              desired_count: 2
             alert_settings:
               include_tags: true
               priority: "3"

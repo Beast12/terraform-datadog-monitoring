@@ -65,7 +65,6 @@ resource "datadog_monitor" "message_count" {
   require_full_window = false
   evaluation_delay    = 900
   timeout_h           = 24
-  new_group_delay     = 300
 
   tags = concat(
     local.monitor_tags,
@@ -102,7 +101,7 @@ resource "datadog_monitor" "oldest_message_age" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_10m):percentile(aws.sns.oldest_message_age{topicname:${each.value.topic_name}}, 95).rollup(max, 600) > ${each.value.thresholds.age_threshold}"
+  query = "avg(last_10m):avg:aws.sns.oldest_message_age{topicname:${each.value.topic_name}} > ${each.value.thresholds.age_threshold}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.age_threshold
@@ -118,7 +117,6 @@ resource "datadog_monitor" "oldest_message_age" {
   require_full_window = false
   evaluation_delay    = 900
   timeout_h           = 24
-  new_group_delay     = 300
 
   tags = concat(
     local.monitor_tags,
@@ -178,7 +176,6 @@ resource "datadog_monitor" "failed_deliveries" {
   evaluation_delay    = 900
   renotify_interval   = 60
   timeout_h           = 24
-  new_group_delay     = 300
 
   tags = concat(
     local.monitor_tags,
@@ -241,12 +238,6 @@ resource "datadog_monitor" "message_volume_drop" {
   evaluation_delay    = 900
   renotify_interval   = 60
   timeout_h           = 24
-  new_group_delay     = 300
-
-  monitor_threshold_windows {
-    trigger_window  = "last_15m"
-    recovery_window = "last_15m"
-  }
 
   tags = concat(
     local.monitor_tags,

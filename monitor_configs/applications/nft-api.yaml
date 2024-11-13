@@ -13,6 +13,7 @@ monitor_sets:
               memory_percent: 90
               memory_available: 1024
               network_errors: 20
+              desired_count: 2
             alert_settings:
               include_tags: true
               priority: "3"
@@ -22,6 +23,7 @@ monitor_sets:
               memory_percent: 90
               memory_available: 1024
               network_errors: 20
+              desired_count: 1
             alert_settings:
               include_tags: true
               priority: "3"
@@ -48,8 +50,9 @@ monitor_sets:
             service_name: "nft-api"
             thresholds:
               cpu_percent: 80
-              memory_threshold: 2
+              memory_threshold: 2048
               connection_threshold: 100
+              iops_threshold: 2400
             alert_settings:
               include_tags: true
               priority: "3"
@@ -65,7 +68,7 @@ monitor_sets:
             thresholds:
               age_threshold: 300
               depth_threshold: 1000
-              dlq_threshold: 1
+              dlq_threshold: 3
             alert_settings:
               include_tags: true
               priority: "3"
@@ -131,6 +134,8 @@ monitor_sets:
           critical_recovery: 15
           warning: 10
           warning_recovery: 5
+        alert_settings:
+          priority: "3"
       nft-api-workers:
         custom_log_lines:
           - "io.venly.tokenapi.common.exception.WalletBusinessException: An unexpected error occurred. Please contact support!"
@@ -139,3 +144,5 @@ monitor_sets:
           critical_recovery: 15
           warning: 10
           warning_recovery: 5
+        alert_settings:
+          priority: "3"

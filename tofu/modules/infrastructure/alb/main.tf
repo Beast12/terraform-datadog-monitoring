@@ -106,7 +106,7 @@ resource "datadog_monitor" "latency" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):p90:aws.applicationelb.target_response_time.average{loadbalancer:${each.value.alb_name}} > ${each.value.thresholds.latency}"
+  query = "avg(last_15m):avg:aws.applicationelb.target_response_time.average{loadbalancer:${each.value.alb_name}} > ${each.value.thresholds.latency}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.latency

@@ -1,0 +1,71 @@
+---
+environment: "prd"
+cluster_name: "api-gateway-prd-cluster"
+notification_channels:
+  infrastructure:
+    ecs: "slack-dd-ecs-alerts-p1"
+    alb: "slack-dd-elb-alerts-p1"
+    rds: "slack-dd-rds-alerts-p1"
+  messaging:
+    sns: "slack-dd-sns-alerts-p1"
+    sqs: "slack-dd-sqs-alerts-p1"
+  application:
+    java: "slack-dd-apm-alerts-p1"
+    node: "slack-dd-apm-alerts-p1"
+    apm: "slack-dd-apm-alerts-p1"
+  logs: "slack-dd-logs-alerts-p1"
+  default: "slack-dd-ecs-alerts-p1"
+
+threshold_overrides:
+  infrastructure:
+    api-gateway:
+      cpu_percent: 90
+      memory_percent: 90
+      memory_available: 2048
+      network_errors: 10
+      desired_count: 5
+      alert_settings:
+        priority: "4"
+    alb:
+      api-gateway:
+        alb_name: "app/api-gateway-prd-external/6df09623767f7bc6"
+        request_count: 120
+        latency: 4
+        error_rate: 10
+        alert_settings:
+          priority: "2"
+    db:
+      enabled: false
+  messaging:
+    sqs:
+      enabled: false
+    sns:
+      enabled: false
+  application:
+    apm:
+      enabled: true
+      services:
+        api-gateway:
+          thresholds:
+            latency: 150
+            error_rate: 5
+            throughput: 90
+          alert_settings:
+            priority: "2"
+    java:
+      enabled: true
+      services:
+        api-gateway:
+          jvm:
+            thresholds:
+              jvm_memory_used: 1024
+            alert_settings:
+              priority: "2"
+  logs:
+    services:
+      api-gateway:
+        thresholds:
+          critical: 25
+          critical_recovery: 20
+          warning: 15
+          warning_recovery: 10
