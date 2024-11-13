@@ -11,8 +11,9 @@ variable "environment" {
 variable "logs" {
   description = "Log monitoring configurations for each service"
   type = map(object({
-    name  = string
-    query = string
+    name         = string
+    query        = string
+    service_name = string
     alert_settings = object({
       priority     = string
       include_tags = bool

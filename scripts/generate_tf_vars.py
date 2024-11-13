@@ -382,7 +382,8 @@ def process_log_config(app_config, env_config):
                 "priority": "2",
                 "include_tags": True
             },
-            "thresholds": thresholds
+            "thresholds": thresholds,
+            "service_name": service_name
         }
 
         # Add stack trace monitor if the application type is 'java'
@@ -399,7 +400,8 @@ def process_log_config(app_config, env_config):
                     "critical_recovery": 10,
                     "warning": 15,
                     "warning_recovery": 5
-                }
+                },
+                "service_name": service_name
             }
 
         # Process custom log lines for each service
@@ -416,7 +418,8 @@ def process_log_config(app_config, env_config):
                     "priority": "3",
                     "include_tags": True
                 },
-                "thresholds": thresholds
+                "thresholds": thresholds,
+                "service_name": service_name
             }
 
     return logs_config

@@ -74,7 +74,7 @@ resource "datadog_monitor" "log_monitor" {
   tags = concat(
     local.monitor_tags,
     [
-      "service:${each.key}",
+      "service:${each.value.service_name}",
       "env:${var.environment}",
       "product:logs",
       "alert_type:log",
