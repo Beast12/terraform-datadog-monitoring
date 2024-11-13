@@ -1,0 +1,211 @@
+variable "datadog_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "datadog_app_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+}
+
+variable "services" {
+  description = "Map of services to monitor"
+  type = map(object({
+    name    = string
+    cluster = string
+    thresholds = object({ # Thresholds for alerting
+      cpu_percent      = number
+      memory_percent   = number
+      memory_available = number # Total memory allocated to the service (in MB)
+      network_errors   = number
+      # Make ALB thresholds optional
+      request_count = optional(number) # Optional for ALB
+      latency       = optional(number) # Optional for ALB
+      error_rate    = optional(number) # Optional for ALB
+    })
+    alert_settings = object({ # Alert settings
+      priority     = string   # Priority for alerting
+      include_tags = bool
+    })
+    tags     = map(string)      # Additional tags for the service
+    alb_name = optional(string) # ALB name, optional for services
+  }))
+}
+
+variable "alb" {
+  description = "Configuration for ALB services"
+  type = map(object({
+    name     = string
+    alb_name = string
+    thresholds = object({
+      request_count = number
+      latency       = number
+      error_rate    = number
+    })
+    alert_settings = object({
+      priority     = string
+      include_tags = bool
+    })
+    tags = map(string)
+  }))
+}
+
+variable "databases" {
+  description = "Map of databases to monitor"
+  type = map(object({
+    name         = string
+    type         = string
+    identifier   = string
+    service_name = string
+    thresholds = object({
+      cpu_percent          = number
+      memory_threshold     = number
+      connection_threshold = number
+    })
+    alert_settings = object({
+      priority     = string
+      include_tags = bool
+    })
+    tags = map(string)
+  }))
+}
+
+variable "queues" {
+  description = "Map of queues to monitor"
+  type = map(object({
+    name         = string
+    service_name = string # For unified service tagging
+    queue_name   = string
+    dlq_name     = optional(string)
+    thresholds = object({
+      age_threshold   = number
+      depth_threshold = number
+      dlq_threshold   = optional(number)
+    })
+    alert_settings = object({
+      priority     = string
+      include_tags = bool
+    })
+    tags = map(string)
+  }))
+}
+
+variable "topics" {
+  description = "Map of SNS topics to monitor"
+  type = map(object({
+    name         = string
+    service_name = string # For unified service tagging
+    topic_name   = string
+    thresholds = object({
+      message_count_threshold = number
+      age_threshold           = number
+    })
+    alert_settings = object({
+      priority     = string
+      include_tags = bool
+    })
+    tags = map(string)
+  }))
+}
+
+variable "java_services" {
+  description = "Configuration for Java services"
+  type = map(object({
+    name         = string
+    service_name = string
+    thresholds = object({
+      jvm_memory_used = number
+      minor_gc_time   = number
+      major_gc_time   = number
+    })
+    alert_settings = object({
+      priority     = string
+      include_tags = bool
+    })
+    tags = map(string)
+  }))
+}
+
+variable "node_services" {
+  description = "Node.js service configurations for monitoring"
+  type = map(object({
+    name         = string
+    service_name = string
+    thresholds = object({
+      cpu_total_usage   = number
+      heap_memory_usage = number
+      event_loop_delay  = number
+    })
+    alert_settings = object({
+      priority     = string
+      include_tags = bool
+    })
+    tags = map(string)
+  }))
+  default = {}
+}
+
+variable "apm_services" {
+  description = "APM service configurations for monitoring"
+  type = map(object({
+    name         = string
+    service_name = string
+    thresholds = object({
+      latency    = number
+      error_rate = number
+      throughput = number
+    })
+    alert_settings = object({
+      priority     = string
+      include_tags = bool
+    })
+    tags = map(string)
+  }))
+  default = {}
+}
+
+variable "logs" {
+  description = "Log monitoring configurations for each service"
+  type = map(object({
+    name  = string
+    query = string
+    alert_settings = object({
+      priority     = string
+      include_tags = bool
+    })
+    thresholds = object({
+      critical          = number
+      critical_recovery = number
+      warning           = number
+      warning_recovery  = number
+    })
+  }))
+}
+
+
+variable "notification_channels" {
+  description = "Notification channel configuration"
+  type = object({
+    infrastructure = map(string)
+    messaging      = map(string)
+    application    = map(string)
+    logs           = string
+    default        = string
+  })
+}
+
+variable "tags" {
+  description = "Common tags to apply to all monitors"
+  type        = map(string)
+  default     = {}
+}

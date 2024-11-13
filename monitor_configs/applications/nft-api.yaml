@@ -1,0 +1,141 @@
+name: "nft-api"
+description: "NFT API Service"
+type: "java"
+monitor_sets:
+  infrastructure:
+    ecs:
+      enabled: true
+      settings:
+        services:
+          nft-api:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+            alert_settings:
+              include_tags: true
+              priority: "3"
+          nft-api-workers:
+            thresholds:
+              cpu_percent: 85
+              memory_percent: 90
+              memory_available: 1024
+              network_errors: 20
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    alb:
+      enabled: true
+      settings:
+        services:
+          nft-api:
+            alb_name: "nft-api-alb"
+            thresholds:
+              request_count: 100
+              latency: 200
+              error_rate: 20
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    db:
+      enabled: true
+      settings:
+        databases:
+          nft-api:
+            type: "rds"
+            identifier: "nft-api-placeholder"
+            service_name: "nft-api"
+            thresholds:
+              cpu_percent: 80
+              memory_threshold: 2
+              connection_threshold: 100
+            alert_settings:
+              include_tags: true
+              priority: "3"
+  messaging:
+    sqs:
+      enabled: true
+      settings:
+        queues:
+          nft-api-application-events:
+            queue_name: "nft-api-application-events"
+            dlq_name: "nft-api-application-events-dlq"
+            service_name: "nft-api"
+            thresholds:
+              age_threshold: 300
+              depth_threshold: 1000
+              dlq_threshold: 1
+            alert_settings:
+              include_tags: true
+              priority: "3"
+    sns:
+      enabled: false
+      settings:
+        topics:
+          nft-api:
+            topic_name: "nft-api-topic"
+            service_name: "nft-api"
+            thresholds:
+              message_count_threshold: 100
+              age_threshold: 300
+            alert_settings:
+              include_tags: true
+              priority: "3"
+  application:
+    apm:
+      enabled: true
+      services:
+        nft-api:
+          thresholds:
+            latency: 200 # in ms
+            error_rate: 0.05 # 5% error rate
+            throughput: 100 # requests per minute
+          alert_settings:
+            priority: "3"
+            include_tags: true
+        nft-api-workers:
+          enabled: false
+          thresholds:
+            latency: 250
+            error_rate: 0.07
+            throughput: 120
+          alert_settings:
+            priority: "3"
+            include_tags: true
+    java:
+      enabled: true
+      services:
+        nft-api:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200 # Set your desired threshold for minor GC
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+        nft-api-workers:
+          thresholds:
+            jvm_memory_used: 1700
+            minor_gc_time: 200 # Set your desired threshold for minor GC
+            major_gc_time: 150
+          alert_settings:
+            priority: "3"
+  logs:
+    enabled: true
+    services:
+      nft-api:
+        custom_log_lines:
+          - "Error getting balance for wallet"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5
+      nft-api-workers:
+        custom_log_lines:
+          - "io.venly.tokenapi.common.exception.WalletBusinessException: An unexpected error occurred. Please contact support!"
+        thresholds:
+          critical: 20
+          critical_recovery: 15
+          warning: 10
+          warning_recovery: 5

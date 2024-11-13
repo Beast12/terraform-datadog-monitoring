@@ -1,0 +1,92 @@
+---
+environment: "staging"
+cluster_name: "nft-api-staging-cluster"
+notification_channels:
+  infrastructure:
+    ecs: "slack-dd-ecs-alerts-p2"
+    alb: "slack-dd-elb-alerts-p2"
+    rds: "slack-dd-rds-alerts-p2"
+  messaging:
+    sns: "slack-dd-sns-alerts-p2"
+    sqs: "slack-dd-sqs-alerts-p2"
+  application:
+    java: "slack-dd-apm-alerts-p2"
+    node: "slack-dd-apm-alerts-p2"
+    apm: "slack-dd-apm-alerts-p2"
+  default: "slack-dd-ecs-alerts-p2"
+  logs: "slack-dd-logs-alerts-p2"
+
+threshold_overrides:
+  infrastructure:
+    ecs:
+      nft-api:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 2048
+        network_errors: 10
+        alert_settings:
+          priority: "4"
+      nft-api-workers:
+        cpu_percent: 90
+        memory_percent: 90
+        memory_available: 4096
+        network_errors: 15
+        alert_settings:
+          priority: "3"
+    alb:
+      nft-api:
+        enabled: false
+    db:
+      enabled: false
+  messaging:
+    sqs:
+      enabled: false
+    sns:
+      enabled: false
+  application:
+    apm:
+      enabled: true
+      services:
+        nft-api:
+          thresholds:
+            latency: 150
+            error_rate: 5
+            throughput: 90
+          alert_settings:
+            priority: "4"
+        nft-api-workers:
+          thresholds:
+            latency: 220
+            error_rate: 5
+            throughput: 110
+          alert_settings:
+            priority: "4"
+    java:
+      enabled: true
+      services:
+        nft-api:
+          jvm:
+            thresholds:
+              jvm_memory_used: 2048
+            alert_settings:
+              priority: "3"
+        nft-api-workers:
+          jvm:
+            thresholds:
+              jvm_memory_used: 2048
+            alert_settings:
+              priority: "3"
+  logs:
+    services:
+      nft-api:
+        thresholds:
+          critical: 30
+          critical_recovery: 25
+          warning: 20
+          warning_recovery: 15
+      nft-api-workers:
+        thresholds:
+          critical: 30
+          critical_recovery: 25
+          warning: 20
+          warning_recovery: 15
