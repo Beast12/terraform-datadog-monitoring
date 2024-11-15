@@ -18,8 +18,7 @@ on:
         type: choice
         options:
           - all
-          - example-app-1
-          - example-app-2
+          - example
       environment:
         description: "Environment to target"
         required: true
@@ -29,9 +28,15 @@ on:
           - qa
           - staging
           - prd
+  push:
+    branches:
+      - main
+    paths:
+      - "monitor_configs/applications/**"
+      - "monitor_configs/environments/**"
 env:
   AWS_REGION: eu-west-1
-  STATE_BUCKET: s3-state-bucket
+  STATE_BUCKET: venly-github-actions-tf-states
 permissions:
   actions: read
   checks: read
@@ -58,18 +63,28 @@ jobs:
     steps:
       - id: set-matrix
         run: |
-          # Determine environments
-          if [ "${{ github.event.inputs.environment }}" == "all" ]; then
-            echo "environments=['qa', 'staging', 'prd']" >> $GITHUB_OUTPUT
+          # Determine environments based on trigger type
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.environment }}" == "all" ]; then
+              echo "environments=['qa', 'staging', 'prd']" >> $GITHUB_OUTPUT
+            else
+              echo "environments=['${{ github.event.inputs.environment || 'qa' }}']" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "environments=['${{ github.event.inputs.environment || 'qa' }}']" >> $GITHUB_OUTPUT
+            # For push events, default to qa
+            echo "environments=['qa']" >> $GITHUB_OUTPUT
           fi
 
-          # Determine applications
-          if [ "${{ github.event.inputs.application }}" == "all" ]; then
-            echo "applications=['example-app-1', 'example-app-2']" >> $GITHUB_OUTPUT
+          # Determine applications based on trigger type
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.application }}" == "all" ]; then
+              echo "applications=['example']" >> $GITHUB_OUTPUT
+            else
+              echo "applications=['${{ github.event.inputs.application }}']" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "applications=['${{ github.event.inputs.application }}']" >> $GITHUB_OUTPUT
+            # For push events, default to all applications
+            echo "applications=['example']" >> $GITHUB_OUTPUT
           fi
 
   validate-configs:
@@ -155,31 +170,92 @@ jobs:
             -backend-config="key=monitoring/${{ matrix.environment }}/${{ matrix.application }}/terraform.tfstate"
 
       - name: Run Tofu Plan
+        id: plan
+        continue-on-error: true
         env:
-          # Datadog provider environment variables
           DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
           DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
           DATADOG_HOST: "https://api.datadoghq.eu"
           DD_SITE: "datadoghq.eu"
           DD_API_KEY: ${{ secrets.DATADOG_API_KEY }}
           DD_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
-          # OpenTofu variables
           TF_VAR_datadog_api_key: ${{ secrets.DATADOG_API_KEY }}
           TF_VAR_datadog_app_key: ${{ secrets.DATADOG_APP_KEY }}
         run: |
           cd tofu/environments/${{ matrix.environment }}
+          mkdir -p outputs
+
           if [ "${{ github.event.inputs.action }}" == "destroy" ]; then
-            tofu plan -destroy -no-color -input=false -out=tfplan
+            tofu plan -destroy -no-color -input=false -out=tfplan 2>&1 | tee outputs/plan.txt
           else
-            tofu plan -no-color -input=false -out=tfplan
+            tofu plan -no-color -input=false -out=tfplan 2>&1 | tee outputs/plan.txt
           fi
 
-      - name: Upload Plan Artifact
+          # Check for errors and create error file if found
+          if grep -q "Error:" outputs/plan.txt; then
+            echo "Error found in plan for ${{ matrix.environment }}/${{ matrix.application }}" > outputs/errors.txt
+            echo "----------------------------------------" >> outputs/errors.txt
+            grep -A 5 "Error:" outputs/plan.txt >> outputs/errors.txt
+            echo "has_errors=true" >> $GITHUB_ENV
+          else
+            echo "has_errors=false" >> $GITHUB_ENV
+          fi
+
+      - name: Upload plan output
+        if: env.has_errors == 'false' && steps.plan.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: tofu-plan-${{ matrix.environment }}-${{ matrix.application }}
-          path: tofu/environments/${{ matrix.environment }}/tfplan
-          retention-days: 1
+          path: |
+            tofu/environments/${{ matrix.environment }}/outputs/plan.txt
+            tofu/environments/${{ matrix.environment }}/tfplan
+
+      - name: Upload error output
+        if: env.has_errors == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: errors-${{ matrix.environment }}-${{ matrix.application }}
+          path: tofu/environments/${{ matrix.environment }}/outputs/errors.txt
+
+      - name: Set job status
+        if: steps.plan.outcome == 'failure' || env.has_errors == 'true'
+        run: exit 1
+
+  aggregate-errors:
+    name: Aggregate Errors
+    needs: plan
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download error artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: errors-*
+
+      - name: Combine error outputs
+        run: |
+          echo "# Plan Errors Summary" > combined_errors.txt
+          echo "The following errors were found during planning:" >> combined_errors.txt
+          echo "" >> combined_errors.txt
+
+          for error_file in errors-*/*.txt; do
+            if [ -f "$error_file" ]; then
+              echo "## $(basename $(dirname $error_file))" >> combined_errors.txt
+              cat "$error_file" >> combined_errors.txt
+              echo "" >> combined_errors.txt
+              echo "----------------------------------------" >> combined_errors.txt
+              echo "" >> combined_errors.txt
+            fi
+          done
+
+      - name: Create error summary
+        run: cat combined_errors.txt >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined errors
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-errors
+          path: combined_errors.txt
 
   apply:
     name: Apply Changes
@@ -236,14 +312,12 @@ jobs:
 
       - name: Run Tofu Apply
         env:
-          # Datadog provider environment variables
           DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
           DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
           DATADOG_HOST: "https://api.datadoghq.eu"
           DD_SITE: "datadoghq.eu"
           DD_API_KEY: ${{ secrets.DATADOG_API_KEY }}
           DD_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
-          # OpenTofu variables
           TF_VAR_datadog_api_key: ${{ secrets.DATADOG_API_KEY }}
           TF_VAR_datadog_app_key: ${{ secrets.DATADOG_APP_KEY }}
         run: |
