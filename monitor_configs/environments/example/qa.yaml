@@ -1,40 +1,39 @@
----
-environment: "staging"
-cluster_name: "nft-api-staging-cluster"
+environment: "qa"
+cluster_name: "example-app-1-qa-cluster"
 notification_channels:
   infrastructure:
-    ecs: "slack-dd-ecs-alerts-p2"
-    alb: "slack-dd-elb-alerts-p2"
-    rds: "slack-dd-rds-alerts-p2"
+    ecs: "slack-ecs-alerts-p2"
+    alb: "slack-elb-alerts-p2"
+    rds: "slack-rds-alerts-p2"
   messaging:
-    sns: "slack-dd-sns-alerts-p2"
-    sqs: "slack-dd-sqs-alerts-p2"
+    sns: "slack-sns-alerts-p2"
+    sqs: "slack-sqs-alerts-p2"
   application:
-    java: "slack-dd-apm-alerts-p2"
-    node: "slack-dd-apm-alerts-p2"
-    apm: "slack-dd-apm-alerts-p2"
-  default: "slack-dd-ecs-alerts-p2"
-  logs: "slack-dd-logs-alerts-p2"
+    java: "slack-apm-alerts-p2"
+    node: "slack-apm-alerts-p2"
+    apm: "slack-apm-alerts-p2"
+  logs: "slack-logs-alerts-p2"
+  default: "slack-ecs-alerts-p2"
 
 threshold_overrides:
   infrastructure:
     ecs:
-      nft-api:
+      example-app-1:
         cpu_percent: 90
         memory_percent: 90
         memory_available: 2048
         network_errors: 10
         alert_settings:
           priority: "4"
-      nft-api-workers:
+      example-app-2:
         cpu_percent: 90
         memory_percent: 90
-        memory_available: 4096
+        memory_available: 2048
         network_errors: 15
         alert_settings:
           priority: "3"
     alb:
-      nft-api:
+      example-app-1:
         enabled: false
     db:
       enabled: false
@@ -47,46 +46,46 @@ threshold_overrides:
     apm:
       enabled: true
       services:
-        nft-api:
+        example-app-1:
           thresholds:
             latency: 150
-            error_rate: 5
+            error_rate: 10
             throughput: 90
           alert_settings:
             priority: "4"
-        nft-api-workers:
+        example-app-2:
           thresholds:
             latency: 220
-            error_rate: 5
+            error_rate: 10
             throughput: 110
           alert_settings:
             priority: "4"
     java:
       enabled: true
       services:
-        nft-api:
+        example-app-1:
           jvm:
             thresholds:
               jvm_memory_used: 2048
             alert_settings:
-              priority: "3"
-        nft-api-workers:
+              priority: "4"
+        example-app-2:
           jvm:
             thresholds:
               jvm_memory_used: 2048
             alert_settings:
-              priority: "3"
+              priority: "4"
   logs:
     services:
-      nft-api:
+      example-app-1:
         thresholds:
-          critical: 30
-          critical_recovery: 25
-          warning: 20
-          warning_recovery: 15
-      nft-api-workers:
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30
+      example-app-2:
         thresholds:
-          critical: 30
-          critical_recovery: 25
-          warning: 20
-          warning_recovery: 15
+          critical: 50
+          critical_recovery: 40
+          warning: 35
+          warning_recovery: 30

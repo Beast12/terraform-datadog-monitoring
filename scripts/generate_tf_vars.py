@@ -46,16 +46,23 @@ def process_ecs_services(ecs_config, env_config, new_cluster_name, app_name):
     """Process ECS services configuration with threshold overrides."""
     services_config = {}
 
-    # Retrieve the entire infrastructure overrides
-    infrastructure_overrides = env_config.get('threshold_overrides', {}).get('infrastructure', {})
+    # Retrieve the ECS overrides
+    ecs_overrides = env_config.get('threshold_overrides', {}).get('infrastructure', {}).get('ecs', {})
 
     for service_name, service_settings in ecs_config.get('settings', {}).get('services', {}).items():
-        # Retrieve service-specific overrides directly from infrastructure overrides
-        service_override = infrastructure_overrides.get(service_name, {})
+        # Get service-specific overrides
+        service_override = ecs_overrides.get(service_name, {})
 
-        # Apply service-specific overrides, or fallback to defaults if no specific overrides exist
+        # First get the service_name from the main config
+        actual_service_name = service_settings.get('service_name')
+        
+        # If there's an override for service_name, use that instead
+        if service_override and 'service_name' in service_override:
+            actual_service_name = service_override['service_name']
+
         service_config = {
             "name": service_name,
+            "service_name": actual_service_name,  # Changed to service_name to match config
             "cluster": new_cluster_name,
             "thresholds": {
                 "cpu_percent": service_override.get('cpu_percent', service_settings['thresholds'].get('cpu_percent', 85)),

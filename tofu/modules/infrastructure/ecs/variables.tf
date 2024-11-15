@@ -11,8 +11,9 @@ variable "environment" {
 variable "services" {
   description = "Map of services to monitor"
   type = map(object({
-    name    = string
-    cluster = string
+    name         = string
+    service_name = string
+    cluster      = string
     thresholds = object({
       cpu_percent      = number
       memory_percent   = number # Critical threshold level in percent

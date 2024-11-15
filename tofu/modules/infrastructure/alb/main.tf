@@ -110,11 +110,10 @@ resource "datadog_monitor" "latency" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.latency
-    critical_recovery = floor(each.value.thresholds.latency * 0.8)
-    warning           = floor(each.value.thresholds.latency * 0.9)
-    warning_recovery  = floor(each.value.thresholds.latency * 0.7)
+    critical_recovery = format("%.3f", each.value.thresholds.latency * 0.8)
+    warning           = format("%.3f", each.value.thresholds.latency * 0.9)
+    warning_recovery  = format("%.3f", each.value.thresholds.latency * 0.7)
   }
-
 
   include_tags        = true
   notify_no_data      = false

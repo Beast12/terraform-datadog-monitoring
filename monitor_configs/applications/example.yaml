@@ -1,5 +1,5 @@
-name: "nft-api"
-description: "NFT API Service"
+name: "example-app-1"
+description: "Example API Service"
 type: "java"
 monitor_sets:
   infrastructure:
@@ -7,23 +7,21 @@ monitor_sets:
       enabled: true
       settings:
         services:
-          nft-api:
+          example-app-1:
             thresholds:
               cpu_percent: 85
               memory_percent: 90
               memory_available: 1024
               network_errors: 20
-              desired_count: 2
             alert_settings:
               include_tags: true
               priority: "3"
-          nft-api-workers:
+          example-app-2:
             thresholds:
               cpu_percent: 85
               memory_percent: 90
               memory_available: 1024
               network_errors: 20
-              desired_count: 1
             alert_settings:
               include_tags: true
               priority: "3"
@@ -31,8 +29,8 @@ monitor_sets:
       enabled: true
       settings:
         services:
-          nft-api:
-            alb_name: "nft-api-alb"
+          example-app-1:
+            alb_name: "example-app-1-alb"
             thresholds:
               request_count: 100
               latency: 200
@@ -44,15 +42,14 @@ monitor_sets:
       enabled: true
       settings:
         databases:
-          nft-api:
+          example-app-1:
             type: "rds"
-            identifier: "nft-api-placeholder"
-            service_name: "nft-api"
+            identifier: "example-app-1-placeholder"
+            service_name: "example-app-1"
             thresholds:
               cpu_percent: 80
               memory_threshold: 2048
               connection_threshold: 100
-              iops_threshold: 2400
             alert_settings:
               include_tags: true
               priority: "3"
@@ -61,14 +58,14 @@ monitor_sets:
       enabled: true
       settings:
         queues:
-          nft-api-application-events:
-            queue_name: "nft-api-application-events"
-            dlq_name: "nft-api-application-events-dlq"
-            service_name: "nft-api"
+          example-app-1-application-events:
+            queue_name: "example-app-1-application-events"
+            dlq_name: "example-app-1-application-events-dlq"
+            service_name: "example-app-1"
             thresholds:
               age_threshold: 300
               depth_threshold: 1000
-              dlq_threshold: 3
+              dlq_threshold: 1
             alert_settings:
               include_tags: true
               priority: "3"
@@ -76,9 +73,9 @@ monitor_sets:
       enabled: false
       settings:
         topics:
-          nft-api:
-            topic_name: "nft-api-topic"
-            service_name: "nft-api"
+          example-app-1:
+            topic_name: "example-app-1-topic"
+            service_name: "example-app-1"
             thresholds:
               message_count_threshold: 100
               age_threshold: 300
@@ -89,7 +86,7 @@ monitor_sets:
     apm:
       enabled: true
       services:
-        nft-api:
+        example-app-1:
           thresholds:
             latency: 200 # in ms
             error_rate: 0.05 # 5% error rate
@@ -97,7 +94,7 @@ monitor_sets:
           alert_settings:
             priority: "3"
             include_tags: true
-        nft-api-workers:
+        example-app-2:
           enabled: false
           thresholds:
             latency: 250
@@ -109,14 +106,14 @@ monitor_sets:
     java:
       enabled: true
       services:
-        nft-api:
+        example-app-1:
           thresholds:
             jvm_memory_used: 1700
             minor_gc_time: 200 # Set your desired threshold for minor GC
             major_gc_time: 150
           alert_settings:
             priority: "3"
-        nft-api-workers:
+        example-app-2:
           thresholds:
             jvm_memory_used: 1700
             minor_gc_time: 200 # Set your desired threshold for minor GC
@@ -126,7 +123,7 @@ monitor_sets:
   logs:
     enabled: true
     services:
-      nft-api:
+      example-app-1:
         custom_log_lines:
           - "Error getting balance for wallet"
         thresholds:
@@ -134,9 +131,7 @@ monitor_sets:
           critical_recovery: 15
           warning: 10
           warning_recovery: 5
-        alert_settings:
-          priority: "3"
-      nft-api-workers:
+      example-app-2:
         custom_log_lines:
           - "io.venly.tokenapi.common.exception.WalletBusinessException: An unexpected error occurred. Please contact support!"
         thresholds:
@@ -144,5 +139,3 @@ monitor_sets:
           critical_recovery: 15
           warning: 10
           warning_recovery: 5
-        alert_settings:
-          priority: "3"
