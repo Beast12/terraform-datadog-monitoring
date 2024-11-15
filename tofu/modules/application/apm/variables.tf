@@ -13,6 +13,7 @@ variable "apm_services" {
   type = map(object({
     name         = string
     service_name = string
+    service_type = string
     thresholds = object({
       latency    = number
       error_rate = number

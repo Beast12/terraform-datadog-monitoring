@@ -13,6 +13,7 @@ variable "java_services" {
   type = map(object({
     name         = string
     service_name = string
+    service_type = string
     thresholds = object({
       jvm_memory_used = number
       minor_gc_time   = number

@@ -1,25 +1,27 @@
 locals {
-  monitor_tags = concat(
-    [for k, v in var.tags : "${k}:${v}"],
-    [
-      "service_type:java",
-      "environment:${var.environment}",
-      "env:${var.environment}",
-      "projectname:${var.project_name}"
-    ]
-  )
+  monitor_tags = [
+    for k, v in var.tags : "${k}:${v}"
+  ]
 
   slack_channel = try(
     var.notification_channels.application["apm"],
     var.notification_channels.default
   )
+
+  # Define metric paths based on service type
+  metric_paths = {
+    for service, config in var.apm_services :
+    service => {
+      request = lookup(config, "service_type", "java") == "node" ? "trace.next.request" : "trace.servlet.request"
+      error   = lookup(config, "service_type", "java") == "node" ? "trace.next.request.errors" : "trace.servlet.request.errors"
+      hits    = lookup(config, "service_type", "java") == "node" ? "trace.next.request.hits" : "trace.servlet.request.hits"
+    }
+  }
+
+  # Updated queries using dynamic metric paths
   queries = {
     for service, config in var.apm_services :
-    service => (
-      lookup(config, "type", "java") == "node" ?
-      "change(avg(last_15m),last_4h):sum:trace.next.request.errors{service:${config.service_name},env:${var.environment}}.as_rate().rollup(sum, 300) > ${config.thresholds.error_rate}" :
-      "change(avg(last_15m),last_4h):sum:trace.servlet.request.errors{service:${config.service_name},env:${var.environment}}.as_rate().rollup(sum, 300) > ${config.thresholds.error_rate}"
-    )
+    service => "change(avg(last_15m),last_4h):sum:${local.metric_paths[service].error}{service:${config.service_name},env:${var.environment}}.as_rate().rollup(sum, 300) > ${config.thresholds.error_rate}"
   }
 }
 
@@ -47,7 +49,7 @@ resource "datadog_monitor" "apm_latency" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_5m):avg:trace.servlet.request{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.latency}"
+  query = "avg(last_5m):avg:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.latency}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.latency
@@ -56,7 +58,6 @@ resource "datadog_monitor" "apm_latency" {
     warning_recovery  = each.value.thresholds.latency * 0.6
   }
 
-
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
@@ -64,6 +65,12 @@ resource "datadog_monitor" "apm_latency" {
 
   tags = concat(
     local.monitor_tags,
+    [
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
   )
@@ -92,7 +99,6 @@ resource "datadog_monitor" "error_rate_monitor" {
     @${local.slack_channel}
   EOT
 
-  # Use the query defined in locals
   query = local.queries[each.key]
 
   monitor_thresholds {
@@ -109,6 +115,12 @@ resource "datadog_monitor" "error_rate_monitor" {
 
   tags = concat(
     local.monitor_tags,
+    [
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "service:${each.value.service_name}",
@@ -119,7 +131,6 @@ resource "datadog_monitor" "error_rate_monitor" {
 
   priority = each.value.alert_settings.priority
 }
-
 
 resource "datadog_monitor" "apm_throughput" {
   for_each = var.apm_services
@@ -144,7 +155,7 @@ resource "datadog_monitor" "apm_throughput" {
     @${local.slack_channel}
   EOT
 
-  query = "sum(last_15m):sum:trace.servlet.request.hits{service:${each.value.service_name},env:${var.environment}}.as_count().rollup(sum, 300) < 0"
+  query = "sum(last_15m):sum:${local.metric_paths[each.key].hits}{service:${each.value.service_name},env:${var.environment}}.as_count().rollup(sum, 300) < 0"
 
   monitor_thresholds {
     critical          = 0 # No data should trigger critical alert
@@ -158,6 +169,12 @@ resource "datadog_monitor" "apm_throughput" {
 
   tags = concat(
     local.monitor_tags,
+    [
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
   )
@@ -183,8 +200,7 @@ resource "datadog_monitor" "latency_anomaly_monitor" {
     @${local.slack_channel}
   EOT
 
-  # Query for anomaly detection on the 75th percentile latency
-  query = "avg(last_12h):anomalies(p75:trace.servlet.request{service:${each.value.service_name},env:${var.environment}}.as_count(), 'agile', 4, direction='both', interval=300, alert_window='last_30m', count_default_zero='true', seasonality='hourly') >= 0.75"
+  query = "avg(last_12h):anomalies(p75:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}}.as_count(), 'agile', 4, direction='both', interval=300, alert_window='last_30m', count_default_zero='true', seasonality='hourly') >= 0.75"
 
   monitor_thresholds {
     critical          = 0.75
@@ -205,6 +221,12 @@ resource "datadog_monitor" "latency_anomaly_monitor" {
   tags = concat(
     local.monitor_tags,
     [
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
+    [
       "service:${each.value.service_name}",
       "env:${var.environment}",
       "product:apm"
@@ -213,4 +235,3 @@ resource "datadog_monitor" "latency_anomaly_monitor" {
 
   priority = each.value.alert_settings.priority
 }
-

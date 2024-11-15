@@ -1,13 +1,7 @@
 locals {
-  monitor_tags = concat(
-    [for k, v in var.tags : "${k}:${v}"],
-    [
-      "service_type:java",
-      "environment:${var.environment}",
-      "env:${var.environment}",
-      "projectname:${var.project_name}"
-    ]
-  )
+  monitor_tags = [
+    for k, v in var.tags : "${k}:${v}"
+  ]
 
   slack_channel = try(
     var.notification_channels.application["java"],
@@ -48,7 +42,6 @@ resource "datadog_monitor" "jvm_memory_usage" {
     warning_recovery  = each.value.thresholds.jvm_memory_used * 0.6 * 1024 * 1024
   }
 
-
   include_tags        = true
   notify_no_data      = false
   require_full_window = true
@@ -56,15 +49,18 @@ resource "datadog_monitor" "jvm_memory_usage" {
 
   tags = concat(
     local.monitor_tags,
-    [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}"
-    ]
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
+    [for k, v in each.value.tags : "${k}:${v}"],
+    ["service:${each.value.service_name}"]
   )
 
   priority = each.value.alert_settings.priority
 }
-
 
 # JVM GC Time Monitor
 resource "datadog_monitor" "jvm_minor_gc_time" {
@@ -98,7 +94,6 @@ resource "datadog_monitor" "jvm_minor_gc_time" {
     warning_recovery  = each.value.thresholds.minor_gc_time * 0.7
   }
 
-
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
@@ -106,10 +101,14 @@ resource "datadog_monitor" "jvm_minor_gc_time" {
 
   tags = concat(
     local.monitor_tags,
-    [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}"
-    ]
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
+    [for k, v in each.value.tags : "${k}:${v}"],
+    ["service:${each.value.service_name}"]
   )
 
   priority = each.value.alert_settings.priority
@@ -146,7 +145,6 @@ resource "datadog_monitor" "jvm_major_gc_time" {
     warning_recovery  = each.value.thresholds.major_gc_time * 0.5
   }
 
-
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
@@ -154,10 +152,14 @@ resource "datadog_monitor" "jvm_major_gc_time" {
 
   tags = concat(
     local.monitor_tags,
-    [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}"
-    ]
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
+    [for k, v in each.value.tags : "${k}:${v}"],
+    ["service:${each.value.service_name}"]
   )
 
   priority = each.value.alert_settings.priority

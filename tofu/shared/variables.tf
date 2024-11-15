@@ -121,6 +121,7 @@ variable "java_services" {
   type = map(object({
     name         = string
     service_name = string
+    service_type = string
     thresholds = object({
       jvm_memory_used = number
       minor_gc_time   = number
@@ -139,6 +140,7 @@ variable "node_services" {
   type = map(object({
     name         = string
     service_name = string
+    service_type = string
     thresholds = object({
       cpu_total_usage   = number
       heap_memory_usage = number
@@ -158,6 +160,7 @@ variable "apm_services" {
   type = map(object({
     name         = string
     service_name = string
+    service_type = string
     thresholds = object({
       latency    = number
       error_rate = number

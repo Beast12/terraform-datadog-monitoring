@@ -1,16 +1,10 @@
 locals {
-  monitor_tags = concat(
-    [for k, v in var.tags : "${k}:${v}"],
-    [
-      "service_type:java",
-      "environment:${var.environment}",
-      "env:${var.environment}",
-      "projectname:${var.project_name}"
-    ]
-  )
+  monitor_tags = [
+    for k, v in var.tags : "${k}:${v}"
+  ]
 
   slack_channel = try(
-    var.notification_channels.application["java"],
+    var.notification_channels.application["node"],
     var.notification_channels.default
   )
 }
@@ -52,10 +46,14 @@ resource "datadog_monitor" "node_cpu_total_usage" {
 
   tags = concat(
     local.monitor_tags,
-    [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}"
-    ]
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
+    [for k, v in each.value.tags : "${k}:${v}"],
+    ["service:${each.value.service_name}"]
   )
 
   priority = each.value.alert_settings.priority
@@ -95,10 +93,14 @@ resource "datadog_monitor" "node_heap_memory_usage" {
 
   tags = concat(
     local.monitor_tags,
-    [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}"
-    ]
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
+    [for k, v in each.value.tags : "${k}:${v}"],
+    ["service:${each.value.service_name}"]
   )
 
   priority = each.value.alert_settings.priority
@@ -140,10 +142,14 @@ resource "datadog_monitor" "node_event_loop_delay" {
 
   tags = concat(
     local.monitor_tags,
-    [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}"
-    ]
+      "service_type:${each.value.service_type}",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ],
+    [for k, v in each.value.tags : "${k}:${v}"],
+    ["service:${each.value.service_name}"]
   )
 
   priority = each.value.alert_settings.priority

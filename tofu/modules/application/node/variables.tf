@@ -13,6 +13,7 @@ variable "node_services" {
   type = map(object({
     name         = string
     service_name = string
+    service_type = string
     thresholds = object({
       cpu_total_usage   = number
       heap_memory_usage = number

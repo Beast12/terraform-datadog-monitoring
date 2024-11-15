@@ -252,6 +252,7 @@ def process_application_config(app_config, env_config):
             applications_config[f"{service_name}-jvm"] = {
                 "name": service_name,
                 "service_name": service_name,
+                "service_type": app_config.get('type'),  # Add the service type
                 "thresholds": {
                     "jvm_memory_used": jvm_env_overrides.get('thresholds', {}).get('jvm_memory_used', 
                         service_config.get('thresholds', {}).get('jvm_memory_used', 1700)),
@@ -282,6 +283,7 @@ def process_application_config(app_config, env_config):
             applications_config[f"{service_name}-node"] = {
                 "name": service_name,
                 "service_name": service_name,
+                "service_type": app_config.get('type'),  # Add the service type
                 "thresholds": {
                     "cpu_total_usage": node_env_overrides.get('thresholds', {}).get('cpu_total_usage', 
                         service_config.get('thresholds', {}).get('cpu_total_usage', 85)),
@@ -318,10 +320,14 @@ def process_apm_config(app_config, env_config):
                 print(f"Debug - APM monitoring disabled for {service_name}")
                 continue  # Skip this service if APM is disabled
 
+            # Get the application type from the main config
+            service_type = app_config.get('type', 'java')  # Default to 'java' if not specified
+
             # Build the APM service config with thresholds and overrides
             apm_config[f"{service_name}-apm"] = {
                 "name": service_name,
                 "service_name": service_name,
+                "service_type": service_type,  # Add the service type
                 "thresholds": {
                     "latency": apm_env_overrides.get('thresholds', {}).get('latency', service_settings.get('thresholds', {}).get('latency', 200)),
                     "error_rate": apm_env_overrides.get('thresholds', {}).get('error_rate', service_settings.get('thresholds', {}).get('error_rate', 0.05)),
