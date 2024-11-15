@@ -200,12 +200,12 @@ resource "datadog_monitor" "latency_anomaly_monitor" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_12h):anomalies(p75:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}}.as_count(), 'agile', 4, direction='both', interval=300, alert_window='last_30m', count_default_zero='true', seasonality='hourly') >= 0.75"
+  query = "avg(last_12h):anomalies(p75:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}}.as_count(), 'agile', 4, direction='both', interval=300, alert_window='last_1h', count_default_zero='true', seasonality='hourly', tolerance='med') >= 0.85"
 
   monitor_thresholds {
-    critical          = 0.75
+    critical          = 0.85
     critical_recovery = 0.25
-    warning           = 0.5
+    warning           = 0.65
     warning_recovery  = 0.15
   }
 
@@ -214,8 +214,8 @@ resource "datadog_monitor" "latency_anomaly_monitor" {
   renotify_interval   = 0
 
   monitor_threshold_windows {
-    trigger_window  = "last_30m"
-    recovery_window = "last_30m"
+    trigger_window  = "last_1h"
+    recovery_window = "last_1h"
   }
 
   tags = concat(
