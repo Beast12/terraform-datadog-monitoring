@@ -55,9 +55,9 @@ resource "datadog_monitor" "request_count" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.request_count
-    critical_recovery = floor(each.value.thresholds.request_count * 0.8)
-    warning           = floor(each.value.thresholds.request_count * 0.9)
-    warning_recovery  = floor(each.value.thresholds.request_count * 0.7)
+    critical_recovery = format("%.3f", each.value.thresholds.request_count * 0.8)
+    warning           = format("%.3f", each.value.thresholds.request_count * 0.9)
+    warning_recovery  = format("%.3f", each.value.thresholds.request_count * 0.7)
   }
 
   include_tags        = true
