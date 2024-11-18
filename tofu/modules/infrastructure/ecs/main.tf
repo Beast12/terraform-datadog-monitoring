@@ -217,7 +217,7 @@ resource "datadog_monitor" "container_health" {
     @${local.slack_channel}
   EOT
 
-  query = "sum(last_5m):avg:ecs.containerinsights.RunningTaskCount{clustername:${each.value.cluster},servicename:${each.value.service_name}} < 0.9"
+  query = "sum(last_1h):avg:ecs.containerinsights.RunningTaskCount{clustername:${each.value.cluster},servicename:${each.value.service_name}} < 0.9"
 
   monitor_thresholds {
     critical          = 0.9 # Alert when less than 1 container is running
@@ -227,7 +227,7 @@ resource "datadog_monitor" "container_health" {
   include_tags      = true
   notify_no_data    = false
   no_data_timeframe = 20
-  evaluation_delay  = 300
+  evaluation_delay  = 900
 
   tags = concat(
     local.monitor_tags,

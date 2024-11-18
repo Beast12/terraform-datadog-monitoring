@@ -140,9 +140,9 @@ resource "datadog_monitor" "jvm_major_gc_time" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.major_gc_time
-    critical_recovery = each.value.thresholds.major_gc_time * 0.7
-    warning           = each.value.thresholds.major_gc_time * 0.75
-    warning_recovery  = each.value.thresholds.major_gc_time * 0.5
+    critical_recovery = each.value.thresholds.major_gc_time * 0.6
+    warning           = each.value.thresholds.major_gc_time * 0.5
+    warning_recovery  = each.value.thresholds.major_gc_time * 0.3
   }
 
   include_tags        = true

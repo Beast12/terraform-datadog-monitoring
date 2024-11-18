@@ -51,7 +51,7 @@ resource "datadog_monitor" "request_count" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):sum:aws.applicationelb.request_count{loadbalancer:${each.value.alb_name}}.as_rate() > ${each.value.thresholds.request_count}"
+  query = "avg(last_1h):sum:aws.applicationelb.request_count{loadbalancer:${each.value.alb_name}}.as_rate() > ${each.value.thresholds.request_count}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.request_count
@@ -107,7 +107,7 @@ resource "datadog_monitor" "latency" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):avg:aws.applicationelb.target_response_time.average{loadbalancer:${each.value.alb_name}} > ${each.value.thresholds.latency}"
+  query = "avg(last_1h):avg:aws.applicationelb.target_response_time.average{loadbalancer:${each.value.alb_name}} > ${each.value.thresholds.latency}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.latency
@@ -164,7 +164,7 @@ resource "datadog_monitor" "error_rate" {
   EOT
 
   query = <<EOT
-    sum(last_15m):(sum:aws.applicationelb.httpcode_target_5xx{loadbalancer:${each.value.alb_name}}.as_count() / sum:aws.applicationelb.request_count{loadbalancer:${each.value.alb_name}}.as_count()) * 100 > ${each.value.thresholds.error_rate}
+    sum(last_1h):(sum:aws.applicationelb.httpcode_target_5xx{loadbalancer:${each.value.alb_name}}.as_count() / sum:aws.applicationelb.request_count{loadbalancer:${each.value.alb_name}}.as_count()) * 100 > ${each.value.thresholds.error_rate}
   EOT
 
   monitor_thresholds {
@@ -179,7 +179,7 @@ resource "datadog_monitor" "error_rate" {
   notify_no_data      = false
   no_data_timeframe   = 20
   require_full_window = false
-  evaluation_delay    = 300
+  evaluation_delay    = 900
   renotify_interval   = 60
 
   tags = concat(
