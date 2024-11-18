@@ -49,7 +49,7 @@ resource "datadog_monitor" "apm_latency" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_5m):avg:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.latency}"
+  query = "avg(last_10m):avg:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.latency}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.latency
@@ -60,8 +60,10 @@ resource "datadog_monitor" "apm_latency" {
 
   include_tags        = true
   notify_no_data      = false
-  require_full_window = false
+  require_full_window = true
   evaluation_delay    = 900
+  renotify_interval   = 60
+  no_data_timeframe   = 20
 
   tags = concat(
     local.monitor_tags,
@@ -112,6 +114,7 @@ resource "datadog_monitor" "error_rate_monitor" {
   notify_no_data      = false
   require_full_window = false
   evaluation_delay    = 900
+  renotify_interval   = 60
 
   tags = concat(
     local.monitor_tags,
@@ -166,6 +169,7 @@ resource "datadog_monitor" "apm_throughput" {
   notify_no_data    = true
   no_data_timeframe = 20
   timeout_h         = 1
+  renotify_interval = 60
 
   tags = concat(
     local.monitor_tags,
@@ -211,7 +215,8 @@ resource "datadog_monitor" "latency_anomaly_monitor" {
 
   notify_no_data      = false
   require_full_window = false
-  renotify_interval   = 0
+  renotify_interval   = 60
+
 
   monitor_threshold_windows {
     trigger_window  = "last_1h"

@@ -62,9 +62,10 @@ resource "datadog_monitor" "request_count" {
 
   include_tags        = true
   notify_no_data      = false
-  no_data_timeframe   = 10
+  no_data_timeframe   = 20
   require_full_window = true
   evaluation_delay    = 900
+  renotify_interval   = 60
 
   tags = concat(
     local.monitor_tags,
@@ -120,6 +121,7 @@ resource "datadog_monitor" "latency" {
   no_data_timeframe   = 20
   require_full_window = false
   evaluation_delay    = 900
+  renotify_interval   = 60
 
   tags = concat(
     local.monitor_tags,
@@ -178,6 +180,7 @@ resource "datadog_monitor" "error_rate" {
   no_data_timeframe   = 20
   require_full_window = false
   evaluation_delay    = 300
+  renotify_interval   = 60
 
   tags = concat(
     local.monitor_tags,

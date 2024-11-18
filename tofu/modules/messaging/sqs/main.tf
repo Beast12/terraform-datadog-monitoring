@@ -63,7 +63,7 @@ resource "datadog_monitor" "age_of_oldest_message" {
   no_data_timeframe   = 20
   require_full_window = false
   evaluation_delay    = 900
-  renotify_interval   = 60
+  renotify_interval   = 120
   timeout_h           = 24
 
   tags = concat(
