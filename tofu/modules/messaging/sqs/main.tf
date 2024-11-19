@@ -49,7 +49,7 @@ resource "datadog_monitor" "age_of_oldest_message" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_10m):max:aws.sqs.approximate_age_of_oldest_message{queuename:${each.value.queue_name}} > ${each.value.thresholds.age_threshold}"
+  query = "avg(last_1h):max:aws.sqs.approximate_age_of_oldest_message{queuename:${each.value.queue_name}} > ${each.value.thresholds.age_threshold}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.age_threshold
@@ -111,7 +111,7 @@ resource "datadog_monitor" "queue_depth" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):avg:aws.sqs.approximate_number_of_messages_visible{queuename:${each.value.queue_name}} > ${each.value.thresholds.depth_threshold}"
+  query = "avg(last_1h):avg:aws.sqs.approximate_number_of_messages_visible{queuename:${each.value.queue_name}} > ${each.value.thresholds.depth_threshold}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.depth_threshold
@@ -179,7 +179,7 @@ resource "datadog_monitor" "dlq_messages" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_10m):avg:aws.sqs.approximate_number_of_messages_visible{queuename:${each.value.dlq_name}} > ${each.value.thresholds.dlq_threshold}"
+  query = "avg(last_1h):avg:aws.sqs.approximate_number_of_messages_visible{queuename:${each.value.dlq_name}} > ${each.value.thresholds.dlq_threshold}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.dlq_threshold
@@ -192,7 +192,7 @@ resource "datadog_monitor" "dlq_messages" {
   notify_no_data      = false
   no_data_timeframe   = 20
   require_full_window = false
-  evaluation_delay    = 600
+  evaluation_delay    = 900
   renotify_interval   = 30
   timeout_h           = 24
 
@@ -245,7 +245,7 @@ resource "datadog_monitor" "dlq_message_age" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_10m):max:aws.sqs.approximate_age_of_oldest_message{queuename:${each.value.dlq_name}} > 3600"
+  query = "avg(last_1h):max:aws.sqs.approximate_age_of_oldest_message{queuename:${each.value.dlq_name}} > 3600"
 
   monitor_thresholds {
     critical          = 3600 # 1 hour
@@ -257,7 +257,7 @@ resource "datadog_monitor" "dlq_message_age" {
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
-  evaluation_delay    = 600
+  evaluation_delay    = 900
   renotify_interval   = 30
   timeout_h           = 24
 

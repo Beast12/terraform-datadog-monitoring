@@ -42,7 +42,7 @@ resource "datadog_monitor" "cpu_usage" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}*} by {container_id}.rollup(avg, 30) > ${each.value.thresholds.cpu_percent}"
+  query = "avg(last_1h):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}*} by {container_id}.rollup(avg, 30) > ${each.value.thresholds.cpu_percent}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.cpu_percent
