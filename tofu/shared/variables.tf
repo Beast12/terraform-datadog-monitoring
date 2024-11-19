@@ -42,8 +42,9 @@ variable "services" {
 variable "alb" {
   description = "Configuration for ALB services"
   type = map(object({
-    name     = string
-    alb_name = string
+    name         = string
+    alb_name     = string
+    service_name = string
     thresholds = object({
       request_count = number
       latency       = number
@@ -164,7 +165,6 @@ variable "apm_services" {
     thresholds = object({
       latency    = number
       error_rate = number
-      throughput = number
     })
     alert_settings = object({
       priority     = string

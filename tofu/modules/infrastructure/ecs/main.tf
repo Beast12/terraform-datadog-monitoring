@@ -42,7 +42,7 @@ resource "datadog_monitor" "cpu_usage" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}*} by {container_id} > ${each.value.thresholds.cpu_percent}"
+  query = "avg(last_15m):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}*} by {container_id}.rollup(avg, 30) > ${each.value.thresholds.cpu_percent}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.cpu_percent
@@ -54,7 +54,7 @@ resource "datadog_monitor" "cpu_usage" {
 
   include_tags        = true
   notify_no_data      = false
-  no_data_timeframe   = 20
+  no_data_timeframe   = 30
   require_full_window = false
   evaluation_delay    = 900
 
@@ -239,5 +239,5 @@ resource "datadog_monitor" "container_health" {
     ]
   )
 
-  priority = each.value.alert_settings.priority
+  priority = 1
 }

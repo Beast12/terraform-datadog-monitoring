@@ -1,0 +1,20 @@
+{
+  "request_count": {
+    "critical": 1,
+    "critical_recovery": 0.8,
+    "warning": 0.9,
+    "warning_recovery": 0.7
+  },
+  "latency": {
+    "critical": 1,
+    "critical_recovery": 0.8,
+    "warning": 0.9,
+    "warning_recovery": 0.7
+  },
+  "error_rate": {
+    "critical": 1,
+    "critical_recovery": 0.8,
+    "warning": 0.9,
+    "warning_recovery": 0.7
+  }
+}

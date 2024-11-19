@@ -71,7 +71,7 @@ resource "datadog_monitor" "request_count" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.name}",
+      "service:${each.value.service_name}",
       "loadbalancer:${each.value.alb_name}",
       "service:${each.value.name}"
     ]
@@ -127,7 +127,7 @@ resource "datadog_monitor" "latency" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.name}",
+      "service:${each.value.service_name}",
       "loadbalancer:${each.value.alb_name}",
       "service:${each.value.name}"
     ]
@@ -169,9 +169,9 @@ resource "datadog_monitor" "error_rate" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.error_rate
-    critical_recovery = floor(each.value.thresholds.error_rate * 0.6)
-    warning           = floor(each.value.thresholds.error_rate * 0.8)
-    warning_recovery  = floor(each.value.thresholds.error_rate * 0.5)
+    critical_recovery = format("%.3f", each.value.thresholds.error_rate * 0.6)
+    warning           = format("%.3f", each.value.thresholds.error_rate * 0.8)
+    warning_recovery  = format("%.3f", each.value.thresholds.error_rate * 0.5)
   }
 
 
@@ -186,7 +186,7 @@ resource "datadog_monitor" "error_rate" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.name}",
+      "service:${each.value.service_name}",
       "loadbalancer:${each.value.alb_name}",
       "service:${each.value.name}"
     ]

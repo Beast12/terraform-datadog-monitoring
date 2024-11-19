@@ -17,7 +17,6 @@ variable "apm_services" {
     thresholds = object({
       latency    = number
       error_rate = number
-      throughput = number
     })
     alert_settings = object({
       priority     = string

@@ -101,6 +101,7 @@ def process_alb_config(alb_config, env_config, app_name):
                 alb_service_config = {
                     "name": service_name,
                     "alb_name": alb_env_overrides.get('alb_name', service_settings['alb_name']),
+                    "service_name": alb_env_overrides.get('service_name', service_settings['service_name']),
                     "thresholds": {
                         "request_count": alb_env_overrides.get('request_count', service_settings['thresholds'].get('request_count', 100)),
                         "latency": alb_env_overrides.get('latency', service_settings['thresholds'].get('latency', 200)),
@@ -246,62 +247,93 @@ def process_application_config(app_config, env_config):
     java_config = application_settings.get('java', {})
     if app_config.get('type') == "java" and java_config.get('enabled', False):
         for service_name, service_config in java_config.get('services', {}).items():
-            # Access the nested 'jvm' key in overrides
-            jvm_env_overrides = env_config.get('threshold_overrides', {}).get('application', {}).get('java', {}).get('services', {}).get(service_name, {}).get('jvm', {})
+            # Get the complete override path for Java service
+            java_env_overrides = env_config.get('threshold_overrides', {}).get('application', {}).get('java', {}).get('services', {}).get(service_name, {})
+            
+            # Debug prints to verify override values
+            print(f"Debug - Service config thresholds: {service_config.get('thresholds', {})}")
+            print(f"Debug - Environment overrides: {java_env_overrides}")
+
+            # First get base thresholds from service config
+            base_thresholds = service_config.get('thresholds', {})
+            
+            # Then override with environment specific values if they exist
+            override_thresholds = java_env_overrides.get('thresholds', {})
+            
+            # Merge thresholds, giving priority to overrides
+            final_thresholds = {
+                'jvm_memory_used': override_thresholds.get('jvm_memory_used', base_thresholds.get('jvm_memory_used', 1700)),
+                'minor_gc_time': override_thresholds.get('minor_gc_time', base_thresholds.get('minor_gc_time', 200)),
+                'major_gc_time': override_thresholds.get('major_gc_time', base_thresholds.get('major_gc_time', 150))
+            }
+
+            # Similarly for alert settings
+            base_alert_settings = service_config.get('alert_settings', {})
+            override_alert_settings = java_env_overrides.get('alert_settings', {})
+            
+            final_alert_settings = {
+                'priority': override_alert_settings.get('priority', base_alert_settings.get('priority', '2')),
+                'include_tags': base_alert_settings.get('include_tags', True)
+            }
 
             applications_config[f"{service_name}-jvm"] = {
                 "name": service_name,
                 "service_name": service_name,
-                "service_type": app_config.get('type'),  # Add the service type
-                "thresholds": {
-                    "jvm_memory_used": jvm_env_overrides.get('thresholds', {}).get('jvm_memory_used', 
-                        service_config.get('thresholds', {}).get('jvm_memory_used', 1700)),
-                    "minor_gc_time": jvm_env_overrides.get('minor_gc_time', 
-                        service_config.get('thresholds', {}).get('minor_gc_time', 200)),
-                    "major_gc_time": jvm_env_overrides.get('major_gc_time', 
-                        service_config.get('thresholds', {}).get('major_gc_time', 150))
-                },
-                "alert_settings": {
-                    "priority": jvm_env_overrides.get('alert_settings', {}).get('priority',
-                        service_config.get('alert_settings', {}).get('priority', '2')),
-                    "include_tags": service_config.get('alert_settings', {}).get('include_tags', True)
-                },
+                "service_type": app_config.get('type'),
+                "thresholds": final_thresholds,
+                "alert_settings": final_alert_settings,
                 "tags": {
                     "application": app_config['name'],
                     "type": "java"
                 }
             }
             print(f"Debug - Added Java service config for {service_name}")
+            print(f"Debug - Final thresholds: {final_thresholds}")
 
-    # Process Node.js monitoring
+    # Process Node.js monitoring (similar logic as Java)
     node_config = application_settings.get('node', {})
     if app_config.get('type') == "node" and node_config.get('enabled', False):
-        print("Debug - Node monitoring enabled and type is node")  # Debug print
+        print("Debug - Node monitoring enabled and type is node")
         for service_name, service_config in node_config.get('services', {}).items():
+            # Get the complete override path for Node service
             node_env_overrides = env_config.get('threshold_overrides', {}).get('application', {}).get('node', {}).get('services', {}).get(service_name, {})
+
+            # First get base thresholds from service config
+            base_thresholds = service_config.get('thresholds', {})
+            
+            # Then override with environment specific values if they exist
+            override_thresholds = node_env_overrides.get('thresholds', {})
+            
+            # Merge thresholds, giving priority to overrides
+            final_thresholds = {
+                'cpu_total_usage': override_thresholds.get('cpu_total_usage', base_thresholds.get('cpu_total_usage', 85)),
+                'heap_memory_usage': override_thresholds.get('heap_memory_usage', base_thresholds.get('heap_memory_usage', 800)),
+                'event_loop_delay': override_thresholds.get('event_loop_delay', base_thresholds.get('event_loop_delay', 100))
+            }
+
+            # Similarly for alert settings
+            base_alert_settings = service_config.get('alert_settings', {})
+            override_alert_settings = node_env_overrides.get('alert_settings', {})
+            
+            final_alert_settings = {
+                'priority': override_alert_settings.get('priority', base_alert_settings.get('priority', '3')),
+                'include_tags': base_alert_settings.get('include_tags', True)
+            }
 
             applications_config[f"{service_name}-node"] = {
                 "name": service_name,
                 "service_name": service_name,
-                "service_type": app_config.get('type'),  # Add the service type
-                "thresholds": {
-                    "cpu_total_usage": node_env_overrides.get('thresholds', {}).get('cpu_total_usage', 
-                        service_config.get('thresholds', {}).get('cpu_total_usage', 85)),
-                    "heap_memory_usage": node_env_overrides.get('thresholds', {}).get('heap_memory_usage', 
-                        service_config.get('thresholds', {}).get('heap_memory_usage', 800)),
-                    "event_loop_delay": node_env_overrides.get('thresholds', {}).get('event_loop_delay', 
-                        service_config.get('thresholds', {}).get('event_loop_delay', 100))
-                },
-                "alert_settings": {
-                    "priority": node_env_overrides.get('alert_settings', {}).get('priority',
-                        service_config.get('alert_settings', {}).get('priority', '3')),
-                    "include_tags": service_config.get('alert_settings', {}).get('include_tags', True)
-                },
+                "service_type": app_config.get('type'),
+                "thresholds": final_thresholds,
+                "alert_settings": final_alert_settings,
                 "tags": {
                     "application": app_config['name'],
                     "type": "node"
                 }
             }
+            print(f"Debug - Added Node service config for {service_name}")
+            print(f"Debug - Final thresholds: {final_thresholds}")
+
     return applications_config
 
 def process_apm_config(app_config, env_config):

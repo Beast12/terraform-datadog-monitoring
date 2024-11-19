@@ -43,7 +43,7 @@ resource "datadog_monitor" "cpu_usage" {
   EOT
 
   query = format(
-    "min(last_15m):avg:%s{db%sidentifier:%s} > %d",
+    "min(last_1h):avg:%s{db%sidentifier:%s} > %d",
     each.value.type == "aurora" ? "aws.rds.cpuutilization" : "aws.rds.cpuutilization",
     each.value.type == "aurora" ? "cluster" : "instance",
     each.value.identifier,
@@ -104,7 +104,7 @@ resource "datadog_monitor" "memory_usage" {
   EOT
 
   query = format(
-    "min(last_15m):avg:%s{db%sidentifier:%s} < %d",
+    "min(last_1h):avg:%s{db%sidentifier:%s} < %d",
     each.value.type == "aurora" ? "aws.rds.freeable_memory" : "aws.rds.freeable_memory",
     each.value.type == "aurora" ? "cluster" : "instance",
     each.value.identifier,
@@ -164,7 +164,7 @@ resource "datadog_monitor" "connections" {
   EOT
 
   query = format(
-    "avg(last_15m):avg:%s{db%sidentifier:%s} > %d",
+    "avg(last_1h):avg:%s{db%sidentifier:%s} > %d",
     each.value.type == "aurora" ? "aws.rds.database_connections" : "aws.rds.database_connections",
     each.value.type == "aurora" ? "cluster" : "instance",
     each.value.identifier,
@@ -182,7 +182,7 @@ resource "datadog_monitor" "connections" {
   include_tags      = true
   notify_no_data    = true
   no_data_timeframe = 20
-  evaluation_delay  = 600
+  evaluation_delay  = 900
 
   tags = concat(
     local.monitor_tags,
@@ -225,7 +225,7 @@ resource "datadog_monitor" "iops_usage" {
   EOT
 
   query = format(
-    "avg(last_15m):(avg:aws.rds.write_iops{db%sidentifier:%s} + avg:aws.rds.read_iops{db%sidentifier:%s}) > %d",
+    "avg(last_1h):(avg:aws.rds.write_iops{db%sidentifier:%s} + avg:aws.rds.read_iops{db%sidentifier:%s}) > %d",
     each.value.type == "aurora" ? "cluster" : "instance",
     each.value.identifier,
     each.value.type == "aurora" ? "cluster" : "instance",

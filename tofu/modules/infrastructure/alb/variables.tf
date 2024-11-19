@@ -11,8 +11,9 @@ variable "environment" {
 variable "alb" { # Add this variable declaration
   description = "Map of ALB configurations"
   type = map(object({
-    name     = string
-    alb_name = string
+    name         = string
+    alb_name     = string
+    service_name = string
     thresholds = object({
       request_count = optional(number)
       latency       = optional(number)
