@@ -91,26 +91,59 @@ def process_alb_config(alb_config, env_config, app_name):
 
     # Check if the ALB monitoring is enabled
     if alb_config.get('enabled', False):
-        for service_name, service_settings in alb_config.get('settings', {}).get('services', {}).items():
-            # Get environment overrides for the service
-            alb_env_overrides = env_config.get('threshold_overrides', {}).get('infrastructure', {}).get('alb', {}).get(service_name, {})
+        # Get services from main config
+        main_services = alb_config.get('settings', {}).get('services', {})
+        
+        # Get ALB overrides from the infrastructure section
+        alb_overrides = env_config.get('threshold_overrides', {}).get('infrastructure', {}).get('alb', {})
+
+        for service_name, service_settings in main_services.items():
+            # Get environment overrides for the specific service
+            service_overrides = alb_overrides.get(service_name, {})
             
-            # Check if the ALB service should be enabled or not
-            if alb_env_overrides.get('enabled', True):  # Default to True if not specified
-                # Build the ALB service config with overrides
+            # Debug prints to verify values
+            print(f"Debug - Processing ALB service: {service_name}")
+            print(f"Debug - Base settings: {service_settings}")
+            print(f"Debug - Override settings: {service_overrides}")
+            
+            # Check if service should be enabled (default to True if not specified)
+            if service_overrides.get('enabled', True):
+                # Get base and override thresholds
+                base_thresholds = service_settings.get('thresholds', {})
+                
+                # Merge thresholds, giving priority to overrides
+                final_thresholds = {
+                    "request_count": service_overrides.get('request_count', 
+                        base_thresholds.get('request_count', 100)),
+                    "latency": service_overrides.get('latency', 
+                        base_thresholds.get('latency', 200)),
+                    "error_rate": service_overrides.get('error_rate', 
+                        base_thresholds.get('error_rate', 20))
+                }
+
+                # Get base and override alert settings
+                base_alert_settings = service_settings.get('alert_settings', {})
+                override_alert_settings = service_overrides.get('alert_settings', {})
+                
+                # Merge alert settings
+                final_alert_settings = {
+                    "priority": override_alert_settings.get('priority', 
+                        base_alert_settings.get('priority', '2')),
+                    "include_tags": base_alert_settings.get('include_tags', True)
+                }
+
+                print(f"Debug - Final thresholds: {final_thresholds}")
+                print(f"Debug - Final alert settings: {final_alert_settings}")
+
+                # Build the complete service config
                 alb_service_config = {
                     "name": service_name,
-                    "alb_name": alb_env_overrides.get('alb_name', service_settings['alb_name']),
-                    "service_name": alb_env_overrides.get('service_name', service_settings['service_name']),
-                    "thresholds": {
-                        "request_count": alb_env_overrides.get('request_count', service_settings['thresholds'].get('request_count', 100)),
-                        "latency": alb_env_overrides.get('latency', service_settings['thresholds'].get('latency', 200)),
-                        "error_rate": alb_env_overrides.get('error_rate', service_settings['thresholds'].get('error_rate', 20)),
-                    },
-                    "alert_settings": {
-                        "priority": alb_env_overrides.get('alert_settings', {}).get('priority', service_settings['alert_settings'].get('priority', '2')),
-                        "include_tags": service_settings['alert_settings'].get('include_tags', True)
-                    },
+                    "alb_name": service_overrides.get('alb_name', 
+                        service_settings.get('alb_name')),
+                    "service_name": service_overrides.get('service_name', 
+                        service_settings.get('service_name')),
+                    "thresholds": final_thresholds,
+                    "alert_settings": final_alert_settings,
                     "tags": {
                         "application": app_name,
                         "service": service_name
