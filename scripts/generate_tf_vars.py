@@ -166,66 +166,110 @@ def process_messaging(messaging_config, env_config, app_name):
     messaging_overrides = env_config.get('threshold_overrides', {}).get('messaging', {})
 
     # Process SQS configuration
-    sqs_enabled = messaging_config.get('sqs', {}).get('enabled', True)
-    sqs_override_enabled = messaging_overrides.get('sqs', {}).get('enabled', True)
+    sqs_config = messaging_config.get('sqs', {})
+    sqs_enabled = sqs_config.get('enabled', True)
+    sqs_overrides = messaging_overrides.get('sqs', {})
+    sqs_override_enabled = sqs_overrides.get('enabled', True)
     
-    if sqs_enabled and sqs_override_enabled:  # Check both main config and override
-        for queue_name, queue_settings in messaging_config.get('sqs', {}).get('settings', {}).get('queues', {}).items():
-            # Get environment overrides for the queue
-            sqs_env_overrides = messaging_overrides.get('sqs', {}).get(queue_name, {})
+    if sqs_enabled and sqs_override_enabled:
+        # Get queue settings from both main config and overrides
+        main_queues = sqs_config.get('settings', {}).get('queues', {})
+        override_queues = sqs_overrides.get('settings', {}).get('queues', {})
+        
+        for queue_name, queue_settings in main_queues.items():
+            # Get override settings for this specific queue
+            queue_overrides = override_queues.get(queue_name, {})
             
-            # Check if individual queue should be enabled
-            if sqs_env_overrides.get('enabled', True):
-                queues_config[f"{app_name}-{queue_name}"] = {
-                    "name": queue_name,
-                    "service_name": queue_settings['service_name'],
-                    "queue_name": sqs_env_overrides.get('queue_name', queue_settings['queue_name']),
-                    "dlq_name": sqs_env_overrides.get('dlq_name', queue_settings.get('dlq_name')),
-                    "thresholds": {
-                        "age_threshold": sqs_env_overrides.get('age_threshold', queue_settings.get('thresholds', {}).get('age_threshold', 300)),
-                        "depth_threshold": sqs_env_overrides.get('depth_threshold', queue_settings.get('thresholds', {}).get('depth_threshold', 1000)),
-                        "dlq_threshold": sqs_env_overrides.get('dlq_threshold', queue_settings.get('thresholds', {}).get('dlq_threshold', 1))
-                    },
-                    "alert_settings": {
-                        "priority": sqs_env_overrides.get('alert_settings', {}).get('priority', "2"),
-                        "include_tags": queue_settings.get('alert_settings', {}).get('include_tags', True)
-                    },
-                    "tags": {
-                        "application": app_name,
-                        "queue": queue_name
-                    }
+            # Merge thresholds with priority to overrides
+            base_thresholds = queue_settings.get('thresholds', {})
+            override_thresholds = queue_overrides.get('thresholds', {})
+            
+            final_thresholds = {
+                'age_threshold': override_thresholds.get('age_threshold', base_thresholds.get('age_threshold', 300)),
+                'depth_threshold': override_thresholds.get('depth_threshold', base_thresholds.get('depth_threshold', 1000)),
+                'dlq_threshold': override_thresholds.get('dlq_threshold', base_thresholds.get('dlq_threshold', 1))
+            }
+
+            # Merge alert settings
+            base_alert_settings = queue_settings.get('alert_settings', {})
+            override_alert_settings = queue_overrides.get('alert_settings', {})
+            
+            final_alert_settings = {
+                'priority': override_alert_settings.get('priority', base_alert_settings.get('priority', '2')),
+                'include_tags': override_alert_settings.get('include_tags', base_alert_settings.get('include_tags', True))
+            }
+
+            print(f"Debug - Processing queue {queue_name}")
+            print(f"Debug - Base thresholds: {base_thresholds}")
+            print(f"Debug - Override thresholds: {override_thresholds}")
+            print(f"Debug - Final thresholds: {final_thresholds}")
+
+            queues_config[f"{app_name}-{queue_name}"] = {
+                "name": queue_name,
+                "service_name": queue_overrides.get('service_name', queue_settings['service_name']),
+                "queue_name": queue_overrides.get('queue_name', queue_settings['queue_name']),
+                "dlq_name": queue_overrides.get('dlq_name', queue_settings.get('dlq_name')),
+                "thresholds": final_thresholds,
+                "alert_settings": final_alert_settings,
+                "tags": {
+                    "application": app_name,
+                    "queue": queue_name
                 }
+            }
 
     # Process SNS configuration
-    sns_enabled = messaging_config.get('sns', {}).get('enabled', True)
-    sns_override_enabled = messaging_overrides.get('sns', {}).get('enabled', True)
+    sns_config = messaging_config.get('sns', {})
+    sns_enabled = sns_config.get('enabled', True)
+    sns_overrides = messaging_overrides.get('sns', {})
+    sns_override_enabled = sns_overrides.get('enabled', True)
     
-    if sns_enabled and sns_override_enabled:  # Check both main config and override
-        for topic_name, topic_settings in messaging_config.get('sns', {}).get('settings', {}).get('topics', {}).items():
-            sns_env_overrides = messaging_overrides.get('sns', {}).get(topic_name, {})
+    if sns_enabled and sns_override_enabled:
+        # Get topic settings from both main config and overrides
+        main_topics = sns_config.get('settings', {}).get('topics', {})
+        override_topics = sns_overrides.get('settings', {}).get('topics', {})
+        
+        for topic_name, topic_settings in main_topics.items():
+            # Get override settings for this specific topic
+            topic_overrides = override_topics.get(topic_name, {})
             
-            # Check if individual topic should be enabled
-            if sns_env_overrides.get('enabled', True):
-                topics_config[f"{app_name}-{topic_name}"] = {
-                    "name": topic_name,
-                    "service_name": topic_settings['service_name'],
-                    "topic_name": sns_env_overrides.get('topic_name', topic_settings['topic_name']),
-                    "thresholds": {
-                        "message_count_threshold": sns_env_overrides.get('message_count_threshold', topic_settings.get('thresholds', {}).get('message_count_threshold', 100)),
-                        "age_threshold": sns_env_overrides.get('age_threshold', topic_settings.get('thresholds', {}).get('age_threshold', 300)),
-                    },
-                    "alert_settings": {
-                        "priority": sns_env_overrides.get('alert_settings', {}).get('priority', "2"),
-                        "include_tags": topic_settings.get('alert_settings', {}).get('include_tags', True)
-                    },
-                    "tags": {
-                        "application": app_name,
-                        "topic": topic_name
-                    }
+            # Merge thresholds with priority to overrides
+            base_thresholds = topic_settings.get('thresholds', {})
+            override_thresholds = topic_overrides.get('thresholds', {})
+            
+            final_thresholds = {
+                'message_count_threshold': override_thresholds.get('message_count_threshold', 
+                    base_thresholds.get('message_count_threshold', 100)),
+                'age_threshold': override_thresholds.get('age_threshold', 
+                    base_thresholds.get('age_threshold', 300))
+            }
+
+            # Merge alert settings
+            base_alert_settings = topic_settings.get('alert_settings', {})
+            override_alert_settings = topic_overrides.get('alert_settings', {})
+            
+            final_alert_settings = {
+                'priority': override_alert_settings.get('priority', base_alert_settings.get('priority', '2')),
+                'include_tags': override_alert_settings.get('include_tags', base_alert_settings.get('include_tags', True))
+            }
+
+            print(f"Debug - Processing topic {topic_name}")
+            print(f"Debug - Base thresholds: {base_thresholds}")
+            print(f"Debug - Override thresholds: {override_thresholds}")
+            print(f"Debug - Final thresholds: {final_thresholds}")
+
+            topics_config[f"{app_name}-{topic_name}"] = {
+                "name": topic_name,
+                "service_name": topic_overrides.get('service_name', topic_settings['service_name']),
+                "topic_name": topic_overrides.get('topic_name', topic_settings['topic_name']),
+                "thresholds": final_thresholds,
+                "alert_settings": final_alert_settings,
+                "tags": {
+                    "application": app_name,
+                    "topic": topic_name
                 }
+            }
 
     return queues_config, topics_config
-
 
 def process_application_config(app_config, env_config):
     """Process application configuration for Java and Node.js services."""
