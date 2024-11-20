@@ -49,7 +49,7 @@ resource "datadog_monitor" "apm_latency" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_10m):avg:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.latency}"
+  query = "avg(last_1h):avg:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.latency}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.latency

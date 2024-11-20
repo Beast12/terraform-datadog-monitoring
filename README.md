@@ -278,13 +278,11 @@ threshold_overrides:
       enabled: true
       services:
         example-app-1:
-          jvm:
             thresholds:
               jvm_memory_used: 2048
             alert_settings:
               priority: "4"
         example-app-2:
-          jvm:
             thresholds:
               jvm_memory_used: 2048
             alert_settings:

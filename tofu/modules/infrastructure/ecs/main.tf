@@ -46,7 +46,7 @@ resource "datadog_monitor" "cpu_usage" {
 
   monitor_thresholds {
     critical          = each.value.thresholds.cpu_percent
-    critical_recovery = each.value.thresholds.cpu_percent * 0.8
+    critical_recovery = each.value.thresholds.cpu_percent * 0.9
   }
 
 
