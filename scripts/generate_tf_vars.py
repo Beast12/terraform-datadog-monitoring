@@ -46,35 +46,59 @@ def process_ecs_services(ecs_config, env_config, new_cluster_name, app_name):
     """Process ECS services configuration with threshold overrides."""
     services_config = {}
 
-    # Retrieve the ECS overrides
-    ecs_overrides = env_config.get('threshold_overrides', {}).get('infrastructure', {}).get('ecs', {})
+    # Get main services configuration
+    main_services = ecs_config.get('settings', {}).get('services', {})
+    
+    # Get infrastructure overrides
+    ecs_overrides = env_config.get('threshold_overrides', {}).get('infrastructure', {})
 
-    for service_name, service_settings in ecs_config.get('settings', {}).get('services', {}).items():
+    for service_name, service_settings in main_services.items():
         # Get service-specific overrides
-        service_override = ecs_overrides.get(service_name, {})
-
-        # First get the service_name from the main config
-        actual_service_name = service_settings.get('service_name')
+        service_overrides = ecs_overrides.get(service_name, {})
         
-        # If there's an override for service_name, use that instead
-        if service_override and 'service_name' in service_override:
-            actual_service_name = service_override['service_name']
+        # Debug prints to track values
+        print(f"Debug - Processing ECS service: {service_name}")
+        print(f"Debug - Base settings: {service_settings}")
+        print(f"Debug - Override settings: {service_overrides}")
+
+        # Get base thresholds and settings
+        base_thresholds = service_settings.get('thresholds', {})
+        base_alert_settings = service_settings.get('alert_settings', {})
+        
+        # Create the final thresholds dict with override priority
+        final_thresholds = {
+            "cpu_percent": service_overrides.get('cpu_percent', 
+                base_thresholds.get('cpu_percent', 85)),
+            "memory_percent": service_overrides.get('memory_percent', 
+                base_thresholds.get('memory_percent', 90)),
+            "memory_available": service_overrides.get('memory_available', 
+                base_thresholds.get('memory_available', 1024)),
+            "network_errors": service_overrides.get('network_errors', 
+                base_thresholds.get('network_errors', 20)),
+            "desired_count": service_overrides.get('desired_count', 
+                base_thresholds.get('desired_count', 2))
+        }
+
+        # Create final alert settings with override priority
+        final_alert_settings = {
+            "priority": service_overrides.get('alert_settings', {}).get('priority', 
+                base_alert_settings.get('priority', '2')),
+            "include_tags": base_alert_settings.get('include_tags', True)
+        }
+
+        print(f"Debug - Final thresholds: {final_thresholds}")
+        print(f"Debug - Final alert settings: {final_alert_settings}")
+
+        # Get service name with override priority
+        actual_service_name = service_overrides.get('service_name', 
+            service_settings.get('service_name'))
 
         service_config = {
             "name": service_name,
-            "service_name": actual_service_name,  # Changed to service_name to match config
+            "service_name": actual_service_name,
             "cluster": new_cluster_name,
-            "thresholds": {
-                "cpu_percent": service_override.get('cpu_percent', service_settings['thresholds'].get('cpu_percent', 85)),
-                "memory_percent": service_override.get('memory_percent', service_settings['thresholds'].get('memory_percent', 90)),
-                "memory_available": service_override.get('memory_available', service_settings['thresholds'].get('memory_available', 1024)),
-                "network_errors": service_override.get('network_errors', service_settings['thresholds'].get('network_errors', 20)),
-                "desired_count": service_override.get('desired_count', service_settings['thresholds'].get('desired_count', 2))
-            },
-            "alert_settings": {
-                "priority": service_override.get('alert_settings', {}).get('priority', service_settings['alert_settings'].get('priority', '2')),
-                "include_tags": service_override.get('alert_settings', {}).get('include_tags', service_settings['alert_settings'].get('include_tags', True))
-            },
+            "thresholds": final_thresholds,
+            "alert_settings": final_alert_settings,
             "tags": {
                 "application": app_name,
                 "service": service_name
