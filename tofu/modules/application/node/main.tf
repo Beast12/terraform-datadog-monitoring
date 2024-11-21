@@ -21,6 +21,7 @@ resource "datadog_monitor" "node_cpu_total_usage" {
     Expected Range: {{threshold}}%
     
     This represents a major deviation (4+ standard deviations) from normal behavior:
+    * Based on 1 week of historical data
     * Trigger: Anomaly sustained for 30 minutes
     * Recovery: Normal behavior for 1 hour
 
@@ -31,15 +32,17 @@ resource "datadog_monitor" "node_cpu_total_usage" {
     * Resource constraints
 
     Investigation Priority Steps:
-    1. Check recent deployments or configuration changes
-    2. Review application performance metrics
-    3. Analyze CPU-bound processes
-    4. Check for unusual traffic patterns
+    1. Compare with last week's CPU patterns
+    2. Check recent deployments or configuration changes
+    3. Review application performance metrics
+    4. Analyze CPU-bound processes
+    5. Check for unusual traffic patterns
+    6. Review system resource allocation
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_30m):anomalies(avg:runtime.node.cpu.total{service:${each.value.service_name},env:${var.environment}}, 'robust', 4, direction='above', alert_window='last_30m', interval=300, count_default_zero='true', seasonality='weekly') >= 1"
+  query = "avg(last_30m):anomalies(avg:runtime.node.cpu.total{service:${each.value.service_name},env:${var.environment}}, 'agile', 4, direction='above', alert_window='last_30m', interval=300, count_default_zero='true', seasonality='weekly', learning_duration='1w') >= 1"
 
   monitor_thresholds {
     critical = 1.0
@@ -54,8 +57,7 @@ resource "datadog_monitor" "node_cpu_total_usage" {
   notify_no_data      = false
   require_full_window = true
   evaluation_delay    = 900 # 15 minutes delay
-  notify_audit        = true
-  timeout_h           = 0
+  notify_audit        = false
   no_data_timeframe   = 120 # Alert on no data after 2 hours
 
   tags = concat(
@@ -65,7 +67,8 @@ resource "datadog_monitor" "node_cpu_total_usage" {
       "environment:${var.environment}",
       "env:${var.environment}",
       "projectname:${var.project_name}",
-      "monitor_type:cpu_anomaly"
+      "monitor_type:cpu_anomaly",
+      "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
@@ -86,6 +89,7 @@ resource "datadog_monitor" "node_heap_memory_usage" {
     Expected Range: {{threshold}} bytes
     
     This represents a major deviation (4+ standard deviations) from normal behavior:
+    * Based on 1 week of historical data
     * Trigger: Anomaly sustained for 2 hours
     * Recovery: Normal behavior for 3 hours
 
@@ -96,16 +100,17 @@ resource "datadog_monitor" "node_heap_memory_usage" {
     * Application performance issues
 
     Investigation Priority Steps:
-    1. Review memory trend over past 24 hours
-    2. Check for memory leaks
-    3. Analyze heap snapshots
-    4. Review application logs for errors
-    5. Check recent deployment changes
+    1. Compare with last week's memory patterns
+    2. Review memory trend over past 24 hours
+    3. Check for memory leaks
+    4. Analyze heap snapshots
+    5. Review recent deployment changes
+    6. Check application logs for errors
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_2h):anomalies(avg:runtime.node.mem.heap_used{service:${each.value.service_name},env:${var.environment}}, 'robust', 4, direction='above', alert_window='last_2h', interval=300, count_default_zero='true', seasonality='weekly', trend='linear') >= 1"
+  query = "avg(last_2h):anomalies(avg:runtime.node.mem.heap_used{service:${each.value.service_name},env:${var.environment}}, 'agile', 4, direction='above', alert_window='last_2h', interval=300, count_default_zero='true', seasonality='weekly', learning_duration='1w', trend='linear') >= 1"
 
   monitor_thresholds {
     critical = 1.0
@@ -119,9 +124,8 @@ resource "datadog_monitor" "node_heap_memory_usage" {
   include_tags        = true
   notify_no_data      = false
   require_full_window = true
-  evaluation_delay    = 1800 # 30 minutes
-  notify_audit        = true
-  timeout_h           = 0
+  evaluation_delay    = 1800 # 30 minutes delay
+  notify_audit        = false
   no_data_timeframe   = 180 # Alert on no data after 3 hours
 
   tags = concat(
@@ -131,7 +135,8 @@ resource "datadog_monitor" "node_heap_memory_usage" {
       "environment:${var.environment}",
       "env:${var.environment}",
       "projectname:${var.project_name}",
-      "monitor_type:memory_anomaly"
+      "monitor_type:memory_anomaly",
+      "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
@@ -152,6 +157,7 @@ resource "datadog_monitor" "node_event_loop_delay" {
     Expected Range: {{threshold}} ns
     
     This represents a major deviation (4+ standard deviations) from normal behavior:
+    * Based on 1 week of historical data
     * Trigger: Anomaly sustained for 15 minutes
     * Recovery: Normal behavior for 30 minutes
 
@@ -162,16 +168,17 @@ resource "datadog_monitor" "node_event_loop_delay" {
     * Service responsiveness issues
 
     Investigation Priority Steps:
-    1. Check for blocking operations
-    2. Review CPU utilization
-    3. Analyze application logs
-    4. Check for long-running operations
-    5. Review recent code changes
+    1. Compare with last week's event loop patterns
+    2. Check for blocking operations
+    3. Review CPU utilization
+    4. Analyze application logs
+    5. Check for long-running operations
+    6. Review recent code changes
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):anomalies(avg:runtime.node.event_loop.delay.avg{service:${each.value.service_name},env:${var.environment}}, 'robust', 4, direction='above', alert_window='last_15m', interval=60, count_default_zero='true', seasonality='weekly') >= 1"
+  query = "avg(last_15m):anomalies(avg:runtime.node.event_loop.delay.avg{service:${each.value.service_name},env:${var.environment}}, 'agile', 4, direction='above', alert_window='last_15m', interval=60, count_default_zero='true', seasonality='weekly', learning_duration='1w') >= 1"
 
   monitor_thresholds {
     critical = 1.0
@@ -185,9 +192,8 @@ resource "datadog_monitor" "node_event_loop_delay" {
   include_tags        = true
   notify_no_data      = false
   require_full_window = true
-  evaluation_delay    = 300 # 5 minutes
-  notify_audit        = true
-  timeout_h           = 0
+  evaluation_delay    = 300 # 5 minutes delay
+  notify_audit        = false
   no_data_timeframe   = 60 # Alert on no data after 1 hour
 
   tags = concat(
@@ -197,7 +203,8 @@ resource "datadog_monitor" "node_event_loop_delay" {
       "environment:${var.environment}",
       "env:${var.environment}",
       "projectname:${var.project_name}",
-      "monitor_type:event_loop_anomaly"
+      "monitor_type:event_loop_anomaly",
+      "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
