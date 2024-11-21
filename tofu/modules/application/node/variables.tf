@@ -14,11 +14,6 @@ variable "node_services" {
     name         = string
     service_name = string
     service_type = string
-    thresholds = object({
-      cpu_total_usage   = number
-      heap_memory_usage = number
-      event_loop_delay  = number
-    })
     alert_settings = object({
       priority     = string
       include_tags = bool

@@ -13,39 +13,58 @@ locals {
 resource "datadog_monitor" "jvm_memory_usage" {
   for_each = var.java_services
 
-  name    = "[${var.environment}] JVM Memory Usage - ${each.value.name}"
+  name    = "[${var.environment}] JVM Memory Usage Anomaly - ${each.value.name}"
   type    = "metric alert"
   message = <<-EOT
-    ## JVM Heap Memory Usage for ${each.value.name}
+    ## Significant JVM Memory Usage Anomaly Detected for ${each.value.name}
 
-    Current Average JVM Heap Memory Used: {{value}} MB
-    Threshold: ${each.value.thresholds.jvm_memory_used} MB
+    Current JVM Heap Memory Used: {{value}} bytes
+    Expected Range: {{threshold}} bytes
+    
+    This represents a major deviation (4+ standard deviations) from normal behavior,
+    sustained over a 2-hour period.
 
-    This could indicate:
-    * Memory leaks
-    * Insufficient heap space
+    This severe anomaly could indicate:
+    * Significant memory leak
+    * Unusual memory allocation patterns
+    * Potential service degradation
+    * Heap space exhaustion risk
 
-    Please investigate:
-    * Application logs
-    * Memory allocation patterns
-    * Heap dump analysis
+    Investigation Priority Steps:
+    1. Check if recent deployment coincides with memory increase
+    2. Review memory trend over past 24 hours
+    3. Analyze heap dumps if available
+    4. Check GC patterns in logs
+    5. Review large object allocations
+
+    Additional Context:
+    * Service: ${each.value.service_name}
+    * Environment: ${var.environment}
+    * Alert Duration: Sustained for 120+ minutes
+    * Deviation: Exceeds 4 standard deviations from normal
+    * Detection Window: 2 hours of continuous anomalous behavior
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_30m):avg:jvm.heap_memory{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.jvm_memory_used * 1024 * 1024}" # Convert MB to bytes
+  query = "avg(last_2h):anomalies(avg:jvm.heap_memory{service:${each.value.service_name},env:${var.environment}}, 'robust', 4, direction='above', alert_window='last_2h', interval=300, count_default_zero='true', seasonality='weekly', trend='linear') >= 1"
 
   monitor_thresholds {
-    critical          = each.value.thresholds.jvm_memory_used * 1024 * 1024
-    critical_recovery = each.value.thresholds.jvm_memory_used * 0.8 * 1024 * 1024
-    warning           = each.value.thresholds.jvm_memory_used * 0.75 * 1024 * 1024
-    warning_recovery  = each.value.thresholds.jvm_memory_used * 0.6 * 1024 * 1024
+    critical = 1.0 # Only triggers on severe anomalies (4+ standard deviations)
+  }
+
+  monitor_threshold_windows {
+    trigger_window  = "last_2h"
+    recovery_window = "last_3h"
   }
 
   include_tags        = true
   notify_no_data      = false
   require_full_window = true
-  evaluation_delay    = 600 # Wait for 10 minutes before evaluating the monitor
+  evaluation_delay    = 1800 # 30 minutes delay to ensure data stability
+  notify_audit        = false
+  timeout_h           = 0
+  no_data_timeframe   = 180 # Only alert on no data after 3 hours
 
   tags = concat(
     local.monitor_tags,
@@ -53,7 +72,9 @@ resource "datadog_monitor" "jvm_memory_usage" {
       "service_type:${each.value.service_type}",
       "environment:${var.environment}",
       "env:${var.environment}",
-      "projectname:${var.project_name}"
+      "projectname:${var.project_name}",
+      "monitor_type:memory_anomaly",
+      "alert_type:capacity"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
@@ -66,38 +87,48 @@ resource "datadog_monitor" "jvm_memory_usage" {
 resource "datadog_monitor" "jvm_minor_gc_time" {
   for_each = var.java_services
 
-  name    = "[${var.environment}] JVM Minor GC Time - ${each.value.name}"
+  name    = "[${var.environment}] JVM Minor GC Time Anomaly - ${each.value.name}"
   type    = "metric alert"
   message = <<-EOT
-    ## JVM Minor GC Time for ${each.value.name}
+    ## Significant JVM Minor GC Time Anomaly detected for ${each.value.name}
 
     Current Minor GC Time: {{value}} ms
-    Threshold: ${each.value.thresholds.minor_gc_time} ms
+    Expected range: {{threshold}} ms
+    
+    This represents a major deviation (4+ standard deviations) from normal behavior over a sustained period.
 
-    This could indicate:
-    * High frequency of minor GCs
-    * Insufficient heap space
+    This severe anomaly could indicate:
+    * Significant spike in minor GCs
+    * Major changes in memory allocation patterns
+    * Potential service degradation
 
-    Please investigate:
-    * Application logs
-    * Memory allocation patterns
+    Recommended investigation steps:
+    1. Check for recent deployments or config changes
+    2. Review memory allocation patterns
+    3. Monitor application performance metrics
+    4. Analyze application logs for errors
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):( sum:jvm.gc.minor_collection_time{service:${each.value.service_name},env:${var.environment}}.as_rate() / sum:jvm.gc.minor_collection_count{service:${each.value.service_name},env:${var.environment}}.as_rate() ) > ${each.value.thresholds.minor_gc_time}"
+  query = "avg(last_30m):anomalies(sum:jvm.gc.minor_collection_time{service:${each.value.service_name},env:${var.environment}}.as_rate() / sum:jvm.gc.minor_collection_count{service:${each.value.service_name},env:${var.environment}}.as_rate(), 'robust', 4, direction='above', alert_window='last_30m', interval=300, count_default_zero='true', seasonality='weekly') >= 1"
 
   monitor_thresholds {
-    critical          = each.value.thresholds.minor_gc_time
-    critical_recovery = each.value.thresholds.minor_gc_time * 0.8
-    warning           = each.value.thresholds.minor_gc_time * 0.85
-    warning_recovery  = each.value.thresholds.minor_gc_time * 0.7
+    critical = 1.0 # Only triggers on severe anomalies (4+ standard deviations)
+  }
+
+  monitor_threshold_windows {
+    trigger_window  = "last_30m"
+    recovery_window = "last_1h"
   }
 
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
-  evaluation_delay    = 300
+  evaluation_delay    = 900 # 15 minutes delay to ensure data stability
+  notify_audit        = false
+  timeout_h           = 0
+  no_data_timeframe   = 60 # Only alert on no data after 60 minutes
 
   tags = concat(
     local.monitor_tags,
@@ -105,7 +136,8 @@ resource "datadog_monitor" "jvm_minor_gc_time" {
       "service_type:${each.value.service_type}",
       "environment:${var.environment}",
       "env:${var.environment}",
-      "projectname:${var.project_name}"
+      "projectname:${var.project_name}",
+      "monitor_type:gc_time_anomaly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
@@ -117,38 +149,49 @@ resource "datadog_monitor" "jvm_minor_gc_time" {
 resource "datadog_monitor" "jvm_major_gc_time" {
   for_each = var.java_services
 
-  name    = "[${var.environment}] JVM Major GC Time - ${each.value.name}"
+  name    = "[${var.environment}] JVM Major GC Time Anomaly - ${each.value.name}"
   type    = "metric alert"
   message = <<-EOT
-    ## JVM Major GC Time for ${each.value.name}
+    ## Significant JVM Major GC Time Anomaly detected for ${each.value.name}
 
     Current Major GC Time: {{value}} ms
-    Threshold: ${each.value.thresholds.major_gc_time} ms
+    Expected range: {{threshold}} ms
+    
+    This represents a major deviation (4+ standard deviations) from normal behavior over a sustained period.
 
-    This could indicate:
-    * High frequency of major GCs
-    * Insufficient heap space
+    This severe anomaly could indicate:
+    * Significant spike in major GCs
+    * Potential severe memory leak
+    * Critical old generation pressure
 
-    Please investigate:
-    * Application logs
-    * Memory allocation patterns
+    Recommended investigation steps:
+    1. Review heap usage trends
+    2. Check for memory leaks
+    3. Analyze old generation metrics
+    4. Review application logs for error patterns
+    5. Check if heap size adjustment is needed
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):( sum:jvm.gc.major_collection_time{service:${each.value.service_name},env:${var.environment}}.as_rate() / sum:jvm.gc.major_collection_count{service:${each.value.service_name},env:${var.environment}}.as_rate() ) > ${each.value.thresholds.major_gc_time}"
+  query = "avg(last_30m):anomalies(sum:jvm.gc.major_collection_time{service:${each.value.service_name},env:${var.environment}}.as_rate() / sum:jvm.gc.major_collection_count{service:${each.value.service_name},env:${var.environment}}.as_rate(), 'robust', 4, direction='above', alert_window='last_30m', interval=300, count_default_zero='true', seasonality='weekly') >= 1"
 
   monitor_thresholds {
-    critical          = each.value.thresholds.major_gc_time
-    critical_recovery = each.value.thresholds.major_gc_time * 0.6
-    warning           = each.value.thresholds.major_gc_time * 0.5
-    warning_recovery  = each.value.thresholds.major_gc_time * 0.3
+    critical = 1.0 # Only triggers on severe anomalies (4+ standard deviations)
+  }
+
+  monitor_threshold_windows {
+    trigger_window  = "last_30m"
+    recovery_window = "last_1h"
   }
 
   include_tags        = true
   notify_no_data      = false
   require_full_window = false
-  evaluation_delay    = 300
+  evaluation_delay    = 900 # 15 minutes delay to ensure data stability
+  notify_audit        = false
+  timeout_h           = 0
+  no_data_timeframe   = 60 # Only alert on no data after 60 minutes
 
   tags = concat(
     local.monitor_tags,
@@ -156,7 +199,8 @@ resource "datadog_monitor" "jvm_major_gc_time" {
       "service_type:${each.value.service_type}",
       "environment:${var.environment}",
       "env:${var.environment}",
-      "projectname:${var.project_name}"
+      "projectname:${var.project_name}",
+      "monitor_type:gc_time_anomaly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
@@ -164,4 +208,3 @@ resource "datadog_monitor" "jvm_major_gc_time" {
 
   priority = each.value.alert_settings.priority
 }
-

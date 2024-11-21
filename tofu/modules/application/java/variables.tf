@@ -14,11 +14,6 @@ variable "java_services" {
     name         = string
     service_name = string
     service_type = string
-    thresholds = object({
-      jvm_memory_used = number
-      minor_gc_time   = number
-      major_gc_time   = number
-    })
     alert_settings = object({
       priority     = string
       include_tags = bool

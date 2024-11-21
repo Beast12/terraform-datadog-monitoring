@@ -9,40 +9,55 @@ locals {
   )
 }
 
-# Total CPU Usage Monitor
 resource "datadog_monitor" "node_cpu_total_usage" {
   for_each = var.node_services
 
-  name    = "[${var.environment}] Node.js CPU Total Usage - ${each.value.name}"
+  name    = "[${var.environment}] Node.js CPU Usage Anomaly - ${each.value.name}"
   type    = "metric alert"
   message = <<-EOT
-    ## Node.js CPU Total Usage for ${each.value.name}
+    ## Significant Node.js CPU Usage Anomaly for ${each.value.name}
 
-    Current CPU Total Usage: {{value}}%
-    Threshold: ${each.value.thresholds.cpu_total_usage}%
+    Current CPU Usage: {{value}}%
+    Expected Range: {{threshold}}%
+    
+    This represents a major deviation (4+ standard deviations) from normal behavior:
+    * Trigger: Anomaly sustained for 30 minutes
+    * Recovery: Normal behavior for 1 hour
 
-    This may indicate CPU-intensive operations or blocking tasks.
+    This severe anomaly could indicate:
+    * CPU-intensive operations or blocking tasks
+    * Unusual workload patterns
+    * Performance degradation
+    * Resource constraints
 
-    Please investigate:
-    * Application performance issues
-    * CPU-bound processes or tasks
+    Investigation Priority Steps:
+    1. Check recent deployments or configuration changes
+    2. Review application performance metrics
+    3. Analyze CPU-bound processes
+    4. Check for unusual traffic patterns
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_15m):avg:runtime.node.cpu.total{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.cpu_total_usage}"
+  query = "avg(last_30m):anomalies(avg:runtime.node.cpu.total{service:${each.value.service_name},env:${var.environment}}, 'robust', 4, direction='above', alert_window='last_30m', interval=300, count_default_zero='true', seasonality='weekly') >= 1"
 
   monitor_thresholds {
-    critical          = each.value.thresholds.cpu_total_usage
-    critical_recovery = each.value.thresholds.cpu_total_usage * 0.8
-    warning           = each.value.thresholds.cpu_total_usage * 0.85
-    warning_recovery  = each.value.thresholds.cpu_total_usage * 0.7
+    critical = 1.0
+  }
+
+  monitor_threshold_windows {
+    trigger_window  = "last_30m"
+    recovery_window = "last_1h"
   }
 
   include_tags        = true
   notify_no_data      = false
-  require_full_window = false
-  evaluation_delay    = 300
+  require_full_window = true
+  evaluation_delay    = 900 # 15 minutes delay
+  notify_audit        = true
+  timeout_h           = 0
+  new_group_delay     = 1800 # 30 minutes
+  no_data_timeframe   = 120  # Alert on no data after 2 hours
 
   tags = concat(
     local.monitor_tags,
@@ -50,7 +65,8 @@ resource "datadog_monitor" "node_cpu_total_usage" {
       "service_type:${each.value.service_type}",
       "environment:${var.environment}",
       "env:${var.environment}",
-      "projectname:${var.project_name}"
+      "projectname:${var.project_name}",
+      "monitor_type:cpu_anomaly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
@@ -59,37 +75,56 @@ resource "datadog_monitor" "node_cpu_total_usage" {
   priority = each.value.alert_settings.priority
 }
 
-# Heap Memory Usage Monitor
 resource "datadog_monitor" "node_heap_memory_usage" {
   for_each = var.node_services
 
-  name    = "[${var.environment}] Node.js Heap Memory Usage - ${each.value.name}"
+  name    = "[${var.environment}] Node.js Heap Memory Anomaly - ${each.value.name}"
   type    = "metric alert"
   message = <<-EOT
-    ## Node.js Heap Memory Usage for ${each.value.name}
+    ## Significant Node.js Heap Memory Anomaly for ${each.value.name}
 
     Current Heap Memory Usage: {{value}} bytes
-    Threshold: ${each.value.thresholds.heap_memory_usage} bytes
+    Expected Range: {{threshold}} bytes
+    
+    This represents a major deviation (4+ standard deviations) from normal behavior:
+    * Trigger: Anomaly sustained for 2 hours
+    * Recovery: Normal behavior for 3 hours
 
-    This may indicate memory leaks or excessive memory consumption.
+    This severe anomaly could indicate:
+    * Memory leaks
+    * Unusual memory allocation patterns
+    * Resource exhaustion risk
+    * Application performance issues
 
-    Please investigate:
-    * Memory-intensive operations
-    * Potential memory leaks
+    Investigation Priority Steps:
+    1. Review memory trend over past 24 hours
+    2. Check for memory leaks
+    3. Analyze heap snapshots
+    4. Review application logs for errors
+    5. Check recent deployment changes
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_5m):avg:runtime.node.mem.heap_used{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.heap_memory_usage * 1024 * 1024}"
+  query = "avg(last_2h):anomalies(avg:runtime.node.mem.heap_used{service:${each.value.service_name},env:${var.environment}}, 'robust', 4, direction='above', alert_window='last_2h', interval=300, count_default_zero='true', seasonality='weekly', trend='linear') >= 1"
 
   monitor_thresholds {
-    critical = each.value.thresholds.heap_memory_usage * 1024 * 1024        # Convert MB to bytes
-    warning  = each.value.thresholds.heap_memory_usage * 0.75 * 1024 * 1024 # Convert MB to bytes for warning
+    critical = 1.0
+  }
+
+  monitor_threshold_windows {
+    trigger_window  = "last_2h"
+    recovery_window = "last_3h"
   }
 
   include_tags        = true
   notify_no_data      = false
-  require_full_window = false
+  require_full_window = true
+  evaluation_delay    = 1800 # 30 minutes
+  notify_audit        = true
+  timeout_h           = 0
+  new_group_delay     = 7200 # 2 hours
+  no_data_timeframe   = 180  # Alert on no data after 3 hours
 
   tags = concat(
     local.monitor_tags,
@@ -97,7 +132,8 @@ resource "datadog_monitor" "node_heap_memory_usage" {
       "service_type:${each.value.service_type}",
       "environment:${var.environment}",
       "env:${var.environment}",
-      "projectname:${var.project_name}"
+      "projectname:${var.project_name}",
+      "monitor_type:memory_anomaly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
@@ -106,39 +142,56 @@ resource "datadog_monitor" "node_heap_memory_usage" {
   priority = each.value.alert_settings.priority
 }
 
-# Event Loop Delay Monitor
 resource "datadog_monitor" "node_event_loop_delay" {
   for_each = var.node_services
 
-  name    = "[${var.environment}] Node.js Event Loop Delay - ${each.value.name}"
+  name    = "[${var.environment}] Node.js Event Loop Delay Anomaly - ${each.value.name}"
   type    = "metric alert"
   message = <<-EOT
-    ## Node.js Event Loop Delay for ${each.value.name}
+    ## Significant Node.js Event Loop Delay Anomaly for ${each.value.name}
 
-    Current Average Event Loop Delay: {{value}} ns
-    Threshold: ${each.value.thresholds.event_loop_delay} ns
+    Current Event Loop Delay: {{value}} ns
+    Expected Range: {{threshold}} ns
+    
+    This represents a major deviation (4+ standard deviations) from normal behavior:
+    * Trigger: Anomaly sustained for 15 minutes
+    * Recovery: Normal behavior for 30 minutes
 
-    High event loop delay can indicate blocking tasks affecting responsiveness.
+    This severe anomaly could indicate:
+    * Blocking operations in event loop
+    * CPU-intensive tasks
+    * I/O bottlenecks
+    * Service responsiveness issues
 
-    Please investigate:
-    * Long-running operations
-    * Potential event loop blocking
+    Investigation Priority Steps:
+    1. Check for blocking operations
+    2. Review CPU utilization
+    3. Analyze application logs
+    4. Check for long-running operations
+    5. Review recent code changes
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_5m):avg:runtime.node.event_loop.delay.avg{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.event_loop_delay}"
+  query = "avg(last_15m):anomalies(avg:runtime.node.event_loop.delay.avg{service:${each.value.service_name},env:${var.environment}}, 'robust', 4, direction='above', alert_window='last_15m', interval=60, count_default_zero='true', seasonality='weekly') >= 1"
 
   monitor_thresholds {
-    critical          = each.value.thresholds.event_loop_delay
-    critical_recovery = each.value.thresholds.event_loop_delay * 0.7
-    warning           = each.value.thresholds.event_loop_delay * 0.8
-    warning_recovery  = each.value.thresholds.event_loop_delay * 0.6
+    critical = 1.0
+  }
+
+  monitor_threshold_windows {
+    trigger_window  = "last_15m"
+    recovery_window = "last_30m"
   }
 
   include_tags        = true
   notify_no_data      = false
-  require_full_window = false
+  require_full_window = true
+  evaluation_delay    = 300 # 5 minutes
+  notify_audit        = true
+  timeout_h           = 0
+  new_group_delay     = 900 # 15 minutes
+  no_data_timeframe   = 60  # Alert on no data after 1 hour
 
   tags = concat(
     local.monitor_tags,
@@ -146,7 +199,8 @@ resource "datadog_monitor" "node_event_loop_delay" {
       "service_type:${each.value.service_type}",
       "environment:${var.environment}",
       "env:${var.environment}",
-      "projectname:${var.project_name}"
+      "projectname:${var.project_name}",
+      "monitor_type:event_loop_anomaly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]

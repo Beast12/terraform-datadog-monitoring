@@ -351,24 +351,7 @@ def process_application_config(app_config, env_config):
             # Get the complete override path for Java service
             java_env_overrides = env_config.get('threshold_overrides', {}).get('application', {}).get('java', {}).get('services', {}).get(service_name, {})
             
-            # Debug prints to verify override values
-            print(f"Debug - Service config thresholds: {service_config.get('thresholds', {})}")
-            print(f"Debug - Environment overrides: {java_env_overrides}")
-
-            # First get base thresholds from service config
-            base_thresholds = service_config.get('thresholds', {})
-            
-            # Then override with environment specific values if they exist
-            override_thresholds = java_env_overrides.get('thresholds', {})
-            
-            # Merge thresholds, giving priority to overrides
-            final_thresholds = {
-                'jvm_memory_used': override_thresholds.get('jvm_memory_used', base_thresholds.get('jvm_memory_used', 1700)),
-                'minor_gc_time': override_thresholds.get('minor_gc_time', base_thresholds.get('minor_gc_time', 200)),
-                'major_gc_time': override_thresholds.get('major_gc_time', base_thresholds.get('major_gc_time', 150))
-            }
-
-            # Similarly for alert settings
+            # Only keep alert settings since we're using anomaly detection now
             base_alert_settings = service_config.get('alert_settings', {})
             override_alert_settings = java_env_overrides.get('alert_settings', {})
             
@@ -381,7 +364,6 @@ def process_application_config(app_config, env_config):
                 "name": service_name,
                 "service_name": service_name,
                 "service_type": app_config.get('type'),
-                "thresholds": final_thresholds,
                 "alert_settings": final_alert_settings,
                 "tags": {
                     "application": app_config['name'],
@@ -389,9 +371,8 @@ def process_application_config(app_config, env_config):
                 }
             }
             print(f"Debug - Added Java service config for {service_name}")
-            print(f"Debug - Final thresholds: {final_thresholds}")
 
-    # Process Node.js monitoring (similar logic as Java)
+    # Process Node.js monitoring
     node_config = application_settings.get('node', {})
     if app_config.get('type') == "node" and node_config.get('enabled', False):
         print("Debug - Node monitoring enabled and type is node")
@@ -399,20 +380,7 @@ def process_application_config(app_config, env_config):
             # Get the complete override path for Node service
             node_env_overrides = env_config.get('threshold_overrides', {}).get('application', {}).get('node', {}).get('services', {}).get(service_name, {})
 
-            # First get base thresholds from service config
-            base_thresholds = service_config.get('thresholds', {})
-            
-            # Then override with environment specific values if they exist
-            override_thresholds = node_env_overrides.get('thresholds', {})
-            
-            # Merge thresholds, giving priority to overrides
-            final_thresholds = {
-                'cpu_total_usage': override_thresholds.get('cpu_total_usage', base_thresholds.get('cpu_total_usage', 85)),
-                'heap_memory_usage': override_thresholds.get('heap_memory_usage', base_thresholds.get('heap_memory_usage', 800)),
-                'event_loop_delay': override_thresholds.get('event_loop_delay', base_thresholds.get('event_loop_delay', 100))
-            }
-
-            # Similarly for alert settings
+            # Only keep alert settings since we're using anomaly detection now
             base_alert_settings = service_config.get('alert_settings', {})
             override_alert_settings = node_env_overrides.get('alert_settings', {})
             
@@ -425,7 +393,6 @@ def process_application_config(app_config, env_config):
                 "name": service_name,
                 "service_name": service_name,
                 "service_type": app_config.get('type'),
-                "thresholds": final_thresholds,
                 "alert_settings": final_alert_settings,
                 "tags": {
                     "application": app_config['name'],
@@ -433,7 +400,6 @@ def process_application_config(app_config, env_config):
                 }
             }
             print(f"Debug - Added Node service config for {service_name}")
-            print(f"Debug - Final thresholds: {final_thresholds}")
 
     return applications_config
 
