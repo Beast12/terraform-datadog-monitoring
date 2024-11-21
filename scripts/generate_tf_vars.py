@@ -498,24 +498,6 @@ def process_log_config(app_config, env_config):
             "service_name": service_name
         }
 
-        # Add stack trace monitor if the application type is 'java'
-        if app_config.get('type') == "java":
-            logs_config[f"{service_name}-stack-trace"] = {
-                "name": f"Stack Trace Monitor for {service_name}",
-                "query": f'logs("service:{service_name} env:{environment} status:error (*Exception OR *Error)").index("{index}").rollup("count").by("service").last("5m") > 25',
-                "alert_settings": {
-                    "priority": "1",
-                    "include_tags": True
-                },
-                "thresholds": {
-                    "critical": 25,
-                    "critical_recovery": 10,
-                    "warning": 15,
-                    "warning_recovery": 5
-                },
-                "service_name": service_name
-            }
-
         # Process custom log lines for each service
         custom_log_lines = override_service_settings.get("custom_log_lines",
                             main_service_settings.get("custom_log_lines", []))

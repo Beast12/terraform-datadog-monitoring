@@ -56,8 +56,7 @@ resource "datadog_monitor" "node_cpu_total_usage" {
   evaluation_delay    = 900 # 15 minutes delay
   notify_audit        = true
   timeout_h           = 0
-  new_group_delay     = 1800 # 30 minutes
-  no_data_timeframe   = 120  # Alert on no data after 2 hours
+  no_data_timeframe   = 120 # Alert on no data after 2 hours
 
   tags = concat(
     local.monitor_tags,
@@ -123,8 +122,7 @@ resource "datadog_monitor" "node_heap_memory_usage" {
   evaluation_delay    = 1800 # 30 minutes
   notify_audit        = true
   timeout_h           = 0
-  new_group_delay     = 7200 # 2 hours
-  no_data_timeframe   = 180  # Alert on no data after 3 hours
+  no_data_timeframe   = 180 # Alert on no data after 3 hours
 
   tags = concat(
     local.monitor_tags,
@@ -190,8 +188,7 @@ resource "datadog_monitor" "node_event_loop_delay" {
   evaluation_delay    = 300 # 5 minutes
   notify_audit        = true
   timeout_h           = 0
-  new_group_delay     = 900 # 15 minutes
-  no_data_timeframe   = 60  # Alert on no data after 1 hour
+  no_data_timeframe   = 60 # Alert on no data after 1 hour
 
   tags = concat(
     local.monitor_tags,
