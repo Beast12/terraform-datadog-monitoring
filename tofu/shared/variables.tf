@@ -152,10 +152,6 @@ variable "apm_services" {
     name         = string
     service_name = string
     service_type = string
-    thresholds = object({
-      latency    = number
-      error_rate = number
-    })
     alert_settings = object({
       priority     = string
       include_tags = bool

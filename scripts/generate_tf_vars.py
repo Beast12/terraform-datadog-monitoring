@@ -422,16 +422,11 @@ def process_apm_config(app_config, env_config):
             # Get the application type from the main config
             service_type = app_config.get('type', 'java')  # Default to 'java' if not specified
 
-            # Build the APM service config with thresholds and overrides
+            # Build the APM service config with only necessary settings
             apm_config[f"{service_name}-apm"] = {
                 "name": service_name,
                 "service_name": service_name,
-                "service_type": service_type,  # Add the service type
-                "thresholds": {
-                    "latency": apm_env_overrides.get('thresholds', {}).get('latency', service_settings.get('thresholds', {}).get('latency', 200)),
-                    "error_rate": apm_env_overrides.get('thresholds', {}).get('error_rate', service_settings.get('thresholds', {}).get('error_rate', 0.05)),
-                    "throughput": apm_env_overrides.get('thresholds', {}).get('throughput', service_settings.get('thresholds', {}).get('throughput', 100))
-                },
+                "service_type": service_type,
                 "alert_settings": {
                     "priority": apm_env_overrides.get('alert_settings', {}).get('priority', service_settings.get('alert_settings', {}).get('priority', '3')),
                     "include_tags": service_settings.get('alert_settings', {}).get('include_tags', True)
@@ -462,57 +457,84 @@ def process_log_config(app_config, env_config):
     # Global error rate threshold, defaulting to 25 if not specified
     global_error_rate_threshold = env_config.get('threshold_overrides', {}).get('logs', {}).get('error_rate', 25)
 
-    # Combine services from both main and override configurations
+    # Get services from both configurations
     main_services = logs_main_config.get('services', {})
     override_services = env_config.get('threshold_overrides', {}).get('logs', {}).get('services', {})
 
-    # Create a combined list of services from main and overrides
+    # Create a combined list of services
     all_service_names = set(main_services.keys()).union(override_services.keys())
 
+    print("Debug - Processing log configuration")
+    print(f"Debug - Found services: {all_service_names}")
+
     for service_name in all_service_names:
-        # Start with main configuration values, then apply overrides where present
+        # Get settings from both configs
         main_service_settings = main_services.get(service_name, {})
         override_service_settings = override_services.get(service_name, {})
 
-        # Custom thresholds, with layering for each threshold type
-        thresholds = {
-            "critical": override_service_settings.get("thresholds", {}).get("critical",
-                       main_service_settings.get("thresholds", {}).get("critical", global_error_rate_threshold)),
-            "critical_recovery": override_service_settings.get("thresholds", {}).get("critical_recovery",
-                                main_service_settings.get("thresholds", {}).get("critical_recovery", global_error_rate_threshold - 10)),
-            "warning": override_service_settings.get("thresholds", {}).get("warning",
-                       main_service_settings.get("thresholds", {}).get("warning", global_error_rate_threshold - 5)),
-            "warning_recovery": override_service_settings.get("thresholds", {}).get("warning_recovery",
-                                main_service_settings.get("thresholds", {}).get("warning_recovery", global_error_rate_threshold - 15))
+        print(f"\nDebug - Processing service: {service_name}")
+        print(f"Debug - Main settings: {main_service_settings}")
+        print(f"Debug - Override settings: {override_service_settings}")
+
+        # Merge custom_log_lines from both configs
+        main_log_lines = main_service_settings.get('custom_log_lines', [])
+        override_log_lines = override_service_settings.get('custom_log_lines', [])
+        
+        # Combine and deduplicate log lines while preserving order
+        combined_log_lines = []
+        seen = set()
+        for line in override_log_lines + main_log_lines:
+            if line not in seen:
+                combined_log_lines.append(line)
+                seen.add(line)
+
+        print(f"Debug - Combined log lines: {combined_log_lines}")
+
+        # Process thresholds with override priority
+        main_thresholds = main_service_settings.get('thresholds', {})
+        override_thresholds = override_service_settings.get('thresholds', {})
+        
+        final_thresholds = {
+            "critical": override_thresholds.get("critical",
+                main_thresholds.get("critical", global_error_rate_threshold)),
+            "critical_recovery": override_thresholds.get("critical_recovery",
+                main_thresholds.get("critical_recovery", global_error_rate_threshold - 10)),
+            "warning": override_thresholds.get("warning",
+                main_thresholds.get("warning", global_error_rate_threshold - 5)),
+            "warning_recovery": override_thresholds.get("warning_recovery",
+                main_thresholds.get("warning_recovery", global_error_rate_threshold - 15))
         }
 
-        # Error rate monitor for each service
+        print(f"Debug - Final thresholds: {final_thresholds}")
+
+        # Create error rate monitor
         logs_config[f"{service_name}-error-rate"] = {
             "name": f"Error Rate Monitor for {service_name}",
-            "query": f"logs(\"service:{service_name} env:{environment} status:error\").index(\"{index}\").rollup(\"count\").by(\"service\").last(\"5m\") > {thresholds['critical']}",
+            "query": f'logs("service:{service_name} env:{environment} status:error").index("{index}").rollup("count").by("service").last("5m") > {final_thresholds["critical"]}',
             "alert_settings": {
-                "priority": "2",
-                "include_tags": True
+                "priority": override_service_settings.get('alert_settings', {}).get('priority',
+                    main_service_settings.get('alert_settings', {}).get('priority', '2')),
+                "include_tags": main_service_settings.get('alert_settings', {}).get('include_tags', True)
             },
-            "thresholds": thresholds,
+            "thresholds": final_thresholds,
             "service_name": service_name
         }
 
-        # Process custom log lines for each service
-        custom_log_lines = override_service_settings.get("custom_log_lines",
-                            main_service_settings.get("custom_log_lines", []))
-        for log_line in custom_log_lines:
+        # Process combined custom log lines
+        for log_line in combined_log_lines:
             # Quote log line if it contains spaces
             log_line_query = f'"{log_line}"' if " " in log_line else log_line
-
-            logs_config[f"{service_name}-{log_line}"] = {
+            
+            monitor_id = f"{service_name}-{log_line}"
+            logs_config[monitor_id] = {
                 "name": f"Custom Log Monitor for '{log_line}'",
-                "query": f"logs(\"service:{service_name} env:{environment} {log_line_query}\").index(\"{index}\").rollup(\"count\").by(\"service\").last(\"5m\") > {thresholds['critical']}",
+                "query": f'logs("service:{service_name} env:{environment} {log_line_query}").index("{index}").rollup("count").by("service").last("5m") > {final_thresholds["critical"]}',
                 "alert_settings": {
-                    "priority": "3",
-                    "include_tags": True
+                    "priority": override_service_settings.get('alert_settings', {}).get('priority',
+                        main_service_settings.get('alert_settings', {}).get('priority', '3')),
+                    "include_tags": main_service_settings.get('alert_settings', {}).get('include_tags', True)
                 },
-                "thresholds": thresholds,
+                "thresholds": final_thresholds,
                 "service_name": service_name
             }
 

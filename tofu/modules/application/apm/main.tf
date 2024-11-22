@@ -18,52 +18,63 @@ locals {
     }
   }
 
-  # Updated queries using dynamic metric paths
-  queries = {
+  # Queries using dynamic metric paths with working configuration
+  error_anomaly_queries = {
     for service, config in var.apm_services :
-    service => "change(avg(last_15m),last_4h):sum:${local.metric_paths[service].error}{service:${config.service_name},env:${var.environment}}.as_rate().rollup(sum, 300) > ${config.thresholds.error_rate}"
+    service => "avg(last_2w):anomalies(sum:${local.metric_paths[service].error}{service:${config.service_name},env:${var.environment}}.as_rate() / sum:${local.metric_paths[service].hits}{service:${config.service_name},env:${var.environment}}.as_rate() * 100, 'agile', 5, direction='above', interval=21600, alert_window='last_1w', seasonality='weekly', count_default_zero='true', timezone='utc') >= 1"
   }
 }
 
 resource "datadog_monitor" "apm_latency" {
   for_each = var.apm_services
 
-  name    = "[${var.environment}] APM Latency - ${each.value.name}"
-  type    = "metric alert"
+  name    = "[${var.environment}] APM Latency Anomaly - ${each.value.name}"
+  type    = "query alert"
   message = <<-EOT
-    ## High Request Latency for ${each.value.name}
+    ## Significant Latency Anomaly Detected for ${each.value.name}
 
     Current Latency: {{value}} ms
-    Threshold: ${each.value.thresholds.latency} ms
+    Expected Range: {{threshold}} ms
+    
+    This represents a major deviation (5+ standard deviations) from normal behavior:
+    * Based on 2 weeks of historical data
+    * Trigger: Anomaly sustained for 1 week
+    * Recovery: Normal behavior for 30 minutes
 
-    This could indicate:
-    * Slow response times from dependencies
-    * High workload causing delays
-    * Inefficient processing within the service
+    This severe anomaly could indicate:
+    * Unusual response times from dependencies
+    * Unexpected workload patterns
+    * Performance degradation
+    * Resource constraints
 
-    Please investigate:
-    * Application and dependency performance
-    * Database or external service response times
-    * Potential optimizations in the code
+    Investigation Priority Steps:
+    1. Compare with last week's latency patterns
+    2. Check dependencies' performance
+    3. Review resource utilization
+    4. Analyze current traffic patterns
+    5. Check recent deployments
+    6. Review database performance
 
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_1h):avg:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}} > ${each.value.thresholds.latency}"
+  query = "avg(last_2w):anomalies(avg:${local.metric_paths[each.key].request}{service:${each.value.service_name},env:${var.environment}}, 'agile', 5, direction='above', interval=21600, alert_window='last_1w', seasonality='weekly', count_default_zero='true', timezone='utc') >= 1"
 
   monitor_thresholds {
-    critical          = each.value.thresholds.latency
-    critical_recovery = each.value.thresholds.latency * 0.7
-    warning           = each.value.thresholds.latency * 0.8
-    warning_recovery  = each.value.thresholds.latency * 0.6
+    critical = 1.0
+  }
+
+  monitor_threshold_windows {
+    trigger_window  = "last_1w"
+    recovery_window = "last_30m"
   }
 
   include_tags        = true
   notify_no_data      = false
   require_full_window = true
-  evaluation_delay    = 900
-  renotify_interval   = 60
-  no_data_timeframe   = 20
+  evaluation_delay    = 900 # 15 minutes
+  notify_audit        = false
+  new_host_delay      = 300
 
   tags = concat(
     local.monitor_tags,
@@ -71,7 +82,9 @@ resource "datadog_monitor" "apm_latency" {
       "service_type:${each.value.service_type}",
       "environment:${var.environment}",
       "env:${var.environment}",
-      "projectname:${var.project_name}"
+      "projectname:${var.project_name}",
+      "monitor_type:anomaly",
+      "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]
@@ -83,38 +96,60 @@ resource "datadog_monitor" "apm_latency" {
 resource "datadog_monitor" "error_rate_monitor" {
   for_each = var.apm_services
 
-  name    = "[${var.environment}] APM Increased Error Rate - ${each.value.service_name}"
+  name    = "[${var.environment}] APM Error Rate Anomaly - ${each.value.service_name}"
   type    = "query alert"
   message = <<-EOT
-    ## Increased Error Rate Detected for ${each.value.service_name}
+    ## Significant Error Rate Anomaly Detected for ${each.value.service_name}
 
-    Current Error Rate: {{value}}%
-    Critical Threshold: ${each.value.thresholds.error_rate * 100}%
+    Current Error Rate Pattern: {{value}}%
+    Expected Range: {{threshold}}%
+    
+    This represents a major deviation (5+ standard deviations) from normal behavior:
+    * Based on 2 weeks of historical data
+    * Trigger: Anomaly sustained for 1 week
+    * Recovery: Normal behavior for 30 minutes
 
-    Please investigate:
-    * Recent deployments
-    * Logs for unusual patterns
-    * High latency or unexpected load
+    This severe anomaly could indicate:
+    * Deployment issues
+    * Service dependencies failing
+    * System resource constraints
+    * External service integration problems
+    * Database connection issues
+    * Configuration errors
 
-    This alert is set to trigger when the error rate exceeds the configured threshold.
+    Investigation Priority Steps:
+    1. Compare with last week's error patterns
+    2. Check recent deployments or changes
+    3. Review error logs and stack traces
+    4. Check downstream dependencies
+    5. Verify external service status
+    6. Monitor system resources
+
+    Additional Context:
+    * Service Type: ${each.value.service_type}
+    * Environment: ${var.environment}
+    * Detection Window: 1 week of sustained anomalous behavior
 
     @${local.slack_channel}
   EOT
 
-  query = local.queries[each.key]
+  query = local.error_anomaly_queries[each.key]
 
   monitor_thresholds {
-    critical          = each.value.thresholds.error_rate
-    critical_recovery = each.value.thresholds.error_rate * 0.6
-    warning           = each.value.thresholds.error_rate * 0.7
-    warning_recovery  = each.value.thresholds.error_rate * 0.5
+    critical = 1.0
   }
 
-  include_tags        = each.value.alert_settings.include_tags
+  monitor_threshold_windows {
+    trigger_window  = "last_1w"
+    recovery_window = "last_30m"
+  }
+
+  include_tags        = true
   notify_no_data      = false
-  require_full_window = false
-  evaluation_delay    = 900
-  renotify_interval   = 60
+  require_full_window = true
+  evaluation_delay    = 900 # 15 minutes
+  notify_audit        = false
+  new_host_delay      = 300
 
   tags = concat(
     local.monitor_tags,
@@ -122,7 +157,9 @@ resource "datadog_monitor" "error_rate_monitor" {
       "service_type:${each.value.service_type}",
       "environment:${var.environment}",
       "env:${var.environment}",
-      "projectname:${var.project_name}"
+      "projectname:${var.project_name}",
+      "monitor_type:anomaly",
+      "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     [
@@ -158,7 +195,7 @@ resource "datadog_monitor" "apm_throughput" {
     @${local.slack_channel}
   EOT
 
-  query = "sum(last_15m):sum:${local.metric_paths[each.key].hits}{service:${each.value.service_name},env:${var.environment}}.as_count().rollup(sum, 300) < 0"
+  query = "sum(last_2w):sum:${local.metric_paths[each.key].hits}{service:${each.value.service_name},env:${var.environment}}.as_count().rollup(sum, 300) < 0"
 
   monitor_thresholds {
     critical          = 0 # No data should trigger critical alert
@@ -166,7 +203,7 @@ resource "datadog_monitor" "apm_throughput" {
   }
 
   include_tags      = true
-  notify_no_data    = true
+  notify_no_data    = false
   no_data_timeframe = 20
   timeout_h         = 1
   renotify_interval = 60

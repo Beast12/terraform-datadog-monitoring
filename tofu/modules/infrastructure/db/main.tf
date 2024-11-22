@@ -59,7 +59,7 @@ resource "datadog_monitor" "cpu_usage" {
 
 
   include_tags      = true
-  notify_no_data    = true
+  notify_no_data    = false
   no_data_timeframe = 20
   evaluation_delay  = 900
 
@@ -180,7 +180,7 @@ resource "datadog_monitor" "connections" {
 
 
   include_tags      = true
-  notify_no_data    = true
+  notify_no_data    = false
   no_data_timeframe = 20
   evaluation_delay  = 900
 
@@ -241,7 +241,7 @@ resource "datadog_monitor" "iops_usage" {
   }
 
   include_tags      = true
-  notify_no_data    = true
+  notify_no_data    = false
   no_data_timeframe = 20
   evaluation_delay  = 900
   renotify_interval = 60

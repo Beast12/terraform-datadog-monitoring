@@ -59,8 +59,8 @@ resource "datadog_monitor" "jvm_memory_usage" {
       "environment:${var.environment}",
       "env:${var.environment}",
       "projectname:${var.project_name}",
-      "monitor_type:memory_anomaly",
-      "alert_type:capacity"
+      "monitor_type:anomaly",
+      "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
     ["service:${each.value.service_name}"]

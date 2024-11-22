@@ -67,7 +67,7 @@ resource "datadog_monitor" "node_cpu_total_usage" {
       "environment:${var.environment}",
       "env:${var.environment}",
       "projectname:${var.project_name}",
-      "monitor_type:cpu_anomaly",
+      "monitor_type:anomaly",
       "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
@@ -135,7 +135,7 @@ resource "datadog_monitor" "node_heap_memory_usage" {
       "environment:${var.environment}",
       "env:${var.environment}",
       "projectname:${var.project_name}",
-      "monitor_type:memory_anomaly",
+      "monitor_type:anomaly",
       "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
@@ -203,7 +203,7 @@ resource "datadog_monitor" "node_event_loop_delay" {
       "environment:${var.environment}",
       "env:${var.environment}",
       "projectname:${var.project_name}",
-      "monitor_type:event_loop_anomaly",
+      "monitor_type:anomaly",
       "analysis_period:weekly"
     ],
     [for k, v in each.value.tags : "${k}:${v}"],
