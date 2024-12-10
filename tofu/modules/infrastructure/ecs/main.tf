@@ -42,7 +42,7 @@ resource "datadog_monitor" "cpu_usage" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_4h):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}*} by {container_id}.rollup(max, 30) >= ${each.value.thresholds.cpu_percent}"
+  query = "avg(last_4h):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}*}.rollup(max, 120) >= ${each.value.thresholds.cpu_percent}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.cpu_percent
@@ -238,4 +238,55 @@ resource "datadog_monitor" "container_health" {
   )
 
   priority = 1
+}
+
+# Unhealthy Tasks Monitor
+resource "datadog_monitor" "unhealthy_tasks" {
+  for_each = var.environment == "prd" ? var.services : {}
+
+  name    = "[${var.environment}] ECS Service ${each.value.name} - Unhealthy Tasks Detected"
+  type    = "query alert"
+  message = <<-EOT
+    ## Service ${each.value.name} has unhealthy tasks
+
+    Desired Tasks: {{desired_value}}
+    Running Tasks: {{running_value}}
+    Missing Tasks: {{value}}
+
+    This indicates tasks are not running as expected.
+
+    Please investigate:
+    * ECS Service Events
+    * Container logs
+    * Recent deployments
+    * Resource constraints
+    * Health check configurations
+
+    @${local.slack_channel}
+  EOT
+
+  query = "avg(last_5m):avg:aws.ecs.service.desired{cluster:${each.value.cluster}, service:${each.value.name}*} - avg:aws.ecs.service.running{cluster:${each.value.cluster}, service:${each.value.name}*} > 0"
+
+  monitor_thresholds {
+    critical          = 0
+    critical_recovery = -1
+  }
+
+  include_tags        = true
+  notify_no_data      = false
+  no_data_timeframe   = 10
+  require_full_window = false
+  evaluation_delay    = 900
+
+  tags = concat(
+    local.monitor_tags,
+    [for k, v in each.value.tags : "${k}:${v}"],
+    [
+      "service:${each.value.name}",
+      "cluster:${each.value.cluster}",
+      "service:${each.value.name}"
+    ]
+  )
+
+  priority = each.value.alert_settings.priority
 }
