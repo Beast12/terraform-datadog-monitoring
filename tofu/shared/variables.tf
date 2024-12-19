@@ -24,6 +24,7 @@ variable "services" {
     name         = string
     cluster      = string
     service_name = string
+    task_name    = string
     thresholds = object({
       cpu_percent      = number
       memory_percent   = number # Critical threshold level in percent
@@ -43,6 +44,7 @@ variable "alb" {
   description = "Configuration for ALB services"
   type = map(object({
     name         = string
+    cluster      = string
     alb_name     = string
     service_name = string
     thresholds = object({
@@ -62,6 +64,7 @@ variable "databases" {
   description = "Map of databases to monitor"
   type = map(object({
     name         = string
+    cluster      = string
     type         = string # "aurora" or "rds"
     identifier   = string # cluster identifier for Aurora, instance identifier for RDS
     service_name = string
@@ -83,6 +86,7 @@ variable "queues" {
   description = "Map of queues to monitor"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string # For unified service tagging
     queue_name   = string
     dlq_name     = optional(string)
@@ -103,6 +107,7 @@ variable "topics" {
   description = "Map of SNS topics to monitor"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string # For unified service tagging
     topic_name   = string
     thresholds = object({
@@ -121,6 +126,7 @@ variable "java_services" {
   description = "Configuration for Java services"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string
     service_type = string
     alert_settings = object({
@@ -135,6 +141,7 @@ variable "node_services" {
   description = "Node.js service configurations for monitoring"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string
     service_type = string
     alert_settings = object({
@@ -150,6 +157,7 @@ variable "apm_services" {
   description = "APM service configurations for monitoring"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string
     service_type = string
     alert_settings = object({
@@ -165,6 +173,7 @@ variable "logs" {
   description = "Log monitoring configurations for each service"
   type = map(object({
     name         = string
+    cluster      = string
     query        = string
     service_name = string
     alert_settings = object({

@@ -71,7 +71,9 @@ resource "datadog_monitor" "message_count" {
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "topic:${each.value.name}",
-      "service:${each.value.service_name}" # Unified service tagging
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -123,7 +125,9 @@ resource "datadog_monitor" "oldest_message_age" {
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "topic:${each.value.name}",
-      "service:${each.value.service_name}" # Unified service tagging
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -182,7 +186,9 @@ resource "datadog_monitor" "failed_deliveries" {
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "topic:${each.value.name}",
-      "service:${each.value.service_name}"
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -244,7 +250,9 @@ resource "datadog_monitor" "message_volume_drop" {
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "topic:${each.value.name}",
-      "service:${each.value.service_name}"
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 

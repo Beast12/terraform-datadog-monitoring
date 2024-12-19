@@ -12,6 +12,7 @@ variable "apm_services" {
   description = "APM service configurations for monitoring"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string
     service_type = string
     alert_settings = object({

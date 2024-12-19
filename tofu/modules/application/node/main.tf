@@ -1,7 +1,13 @@
 locals {
-  monitor_tags = [
-    for k, v in var.tags : "${k}:${v}"
-  ]
+  monitor_tags = concat(
+    [for k, v in var.tags : "${k}:${v}"],
+    [
+      "service_type:node",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ]
+  )
 
   slack_channel = try(
     var.notification_channels.application["node"],
@@ -58,22 +64,16 @@ resource "datadog_monitor" "node_cpu_total_usage" {
   require_full_window = true
   evaluation_delay    = 900 # 15 minutes delay
   notify_audit        = false
-  no_data_timeframe   = 120 # Alert on no data after 2 hours
 
   tags = concat(
     local.monitor_tags,
-    [
-      "service_type:${each.value.service_type}",
-      "environment:${var.environment}",
-      "env:${var.environment}",
-      "projectname:${var.project_name}",
-      "monitor_type:anomaly",
-      "analysis_period:weekly"
-    ],
     [for k, v in each.value.tags : "${k}:${v}"],
-    ["service:${each.value.service_name}"]
+    [
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
+    ]
   )
-
   priority = each.value.alert_settings.priority
 }
 
@@ -126,22 +126,16 @@ resource "datadog_monitor" "node_heap_memory_usage" {
   require_full_window = true
   evaluation_delay    = 1800 # 30 minutes delay
   notify_audit        = false
-  no_data_timeframe   = 180 # Alert on no data after 3 hours
 
   tags = concat(
     local.monitor_tags,
-    [
-      "service_type:${each.value.service_type}",
-      "environment:${var.environment}",
-      "env:${var.environment}",
-      "projectname:${var.project_name}",
-      "monitor_type:anomaly",
-      "analysis_period:weekly"
-    ],
     [for k, v in each.value.tags : "${k}:${v}"],
-    ["service:${each.value.service_name}"]
+    [
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
+    ]
   )
-
   priority = each.value.alert_settings.priority
 }
 
@@ -194,21 +188,15 @@ resource "datadog_monitor" "node_event_loop_delay" {
   require_full_window = true
   evaluation_delay    = 300 # 5 minutes delay
   notify_audit        = false
-  no_data_timeframe   = 60 # Alert on no data after 1 hour
 
   tags = concat(
     local.monitor_tags,
-    [
-      "service_type:${each.value.service_type}",
-      "environment:${var.environment}",
-      "env:${var.environment}",
-      "projectname:${var.project_name}",
-      "monitor_type:anomaly",
-      "analysis_period:weekly"
-    ],
     [for k, v in each.value.tags : "${k}:${v}"],
-    ["service:${each.value.service_name}"]
+    [
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
+    ]
   )
-
   priority = each.value.alert_settings.priority
 }

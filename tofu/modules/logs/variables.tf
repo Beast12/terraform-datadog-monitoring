@@ -12,6 +12,7 @@ variable "logs" {
   description = "Log monitoring configurations for each service"
   type = map(object({
     name         = string
+    cluster      = string
     query        = string
     service_name = string
     alert_settings = object({

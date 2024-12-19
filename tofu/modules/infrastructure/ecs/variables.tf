@@ -13,6 +13,7 @@ variable "services" {
   type = map(object({
     name         = string
     service_name = string
+    task_name    = string
     cluster      = string
     thresholds = object({
       cpu_percent      = number

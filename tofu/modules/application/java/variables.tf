@@ -12,6 +12,7 @@ variable "java_services" {
   description = "Configuration for Java services"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string
     service_type = string
     alert_settings = object({

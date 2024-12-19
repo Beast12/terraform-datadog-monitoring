@@ -86,16 +86,25 @@ def process_ecs_services(ecs_config, env_config, new_cluster_name, app_name):
             "include_tags": base_alert_settings.get('include_tags', True)
         }
 
-        print(f"Debug - Final thresholds: {final_thresholds}")
-        print(f"Debug - Final alert settings: {final_alert_settings}")
-
         # Get service name with override priority
         actual_service_name = service_overrides.get('service_name', 
             service_settings.get('service_name'))
 
+        # Get task name with proper override handling and fallback
+        task_name = service_overrides.get('task_name')
+        if not task_name:
+            task_name = service_settings.get('task_name')
+        if not task_name:
+            # If no task_name is specified in either config, construct it from service name
+            env = env_config.get('environment', 'prd')  # Default to prd if not specified
+            task_name = f"{service_name}-{env}"
+
+        print(f"Debug - Final task_name for {service_name}: {task_name}")
+
         service_config = {
             "name": service_name,
             "service_name": actual_service_name,
+            "task_name": task_name,
             "cluster": new_cluster_name,
             "thresholds": final_thresholds,
             "alert_settings": final_alert_settings,
@@ -107,9 +116,12 @@ def process_ecs_services(ecs_config, env_config, new_cluster_name, app_name):
 
         services_config[f"{app_name}-{service_name}"] = service_config
 
+        print(f"Debug - Final config for {service_name}:")
+        print(service_config)
+
     return services_config
 
-def process_alb_config(alb_config, env_config, app_name):
+def process_alb_config(alb_config, env_config, app_name, new_cluster_name):
     """Process ALB configuration."""
     alb_services_config = {}
 
@@ -162,6 +174,7 @@ def process_alb_config(alb_config, env_config, app_name):
                 # Build the complete service config
                 alb_service_config = {
                     "name": service_name,
+                    "cluster": new_cluster_name,
                     "alb_name": service_overrides.get('alb_name', 
                         service_settings.get('alb_name')),
                     "service_name": service_overrides.get('service_name', 
@@ -178,7 +191,7 @@ def process_alb_config(alb_config, env_config, app_name):
 
     return alb_services_config
 
-def process_db_config(db_config, env_config, app_name):
+def process_db_config(db_config, env_config, app_name, new_cluster_name):
     """Process database configuration."""
     databases_config = {}
 
@@ -196,6 +209,7 @@ def process_db_config(db_config, env_config, app_name):
                     "type": db_env_overrides.get('type', db_settings['type']),
                     "identifier": db_env_overrides.get('identifier', db_settings['identifier']),
                     "service_name": db_env_overrides.get('service_name', db_settings['service_name']),
+                    "cluster": new_cluster_name,
                     "thresholds": {
                         "cpu_percent": db_env_overrides.get('cpu_percent', db_settings['thresholds'].get('cpu_percent', 80)),
                         "memory_threshold": db_env_overrides.get('memory_threshold', db_settings['thresholds'].get('memory_threshold', 2)),
@@ -214,7 +228,7 @@ def process_db_config(db_config, env_config, app_name):
     
     return databases_config
 
-def process_messaging(messaging_config, env_config, app_name):
+def process_messaging(messaging_config, env_config, app_name, new_cluster_name):
     """Process messaging configuration (SQS and SNS)."""
     queues_config = {}
     topics_config = {}
@@ -264,6 +278,7 @@ def process_messaging(messaging_config, env_config, app_name):
             queues_config[f"{app_name}-{queue_name}"] = {
                 "name": queue_name,
                 "service_name": queue_overrides.get('service_name', queue_settings['service_name']),
+                "cluster": new_cluster_name,
                 "queue_name": queue_overrides.get('queue_name', queue_settings['queue_name']),
                 "dlq_name": queue_overrides.get('dlq_name', queue_settings.get('dlq_name')),
                 "thresholds": final_thresholds,
@@ -317,6 +332,7 @@ def process_messaging(messaging_config, env_config, app_name):
             topics_config[f"{app_name}-{topic_name}"] = {
                 "name": topic_name,
                 "service_name": topic_overrides.get('service_name', topic_settings['service_name']),
+                "cluster": new_cluster_name,
                 "topic_name": topic_overrides.get('topic_name', topic_settings['topic_name']),
                 "thresholds": final_thresholds,
                 "alert_settings": final_alert_settings,
@@ -328,7 +344,7 @@ def process_messaging(messaging_config, env_config, app_name):
 
     return queues_config, topics_config
 
-def process_application_config(app_config, env_config):
+def process_application_config(app_config, env_config, new_cluster_name):
     """Process application configuration for Java and Node.js services."""
     applications_config = {}
 
@@ -363,6 +379,7 @@ def process_application_config(app_config, env_config):
             applications_config[f"{service_name}-jvm"] = {
                 "name": service_name,
                 "service_name": service_name,
+                "cluster": new_cluster_name,
                 "service_type": app_config.get('type'),
                 "alert_settings": final_alert_settings,
                 "tags": {
@@ -392,6 +409,7 @@ def process_application_config(app_config, env_config):
             applications_config[f"{service_name}-node"] = {
                 "name": service_name,
                 "service_name": service_name,
+                "cluster": new_cluster_name,
                 "service_type": app_config.get('type'),
                 "alert_settings": final_alert_settings,
                 "tags": {
@@ -403,7 +421,7 @@ def process_application_config(app_config, env_config):
 
     return applications_config
 
-def process_apm_config(app_config, env_config):
+def process_apm_config(app_config, env_config, new_cluster_name):
     """Process APM monitoring configuration."""
     apm_config = {}
 
@@ -425,6 +443,7 @@ def process_apm_config(app_config, env_config):
             # Build the APM service config with only necessary settings
             apm_config[f"{service_name}-apm"] = {
                 "name": service_name,
+                "cluster": new_cluster_name,
                 "service_name": service_name,
                 "service_type": service_type,
                 "alert_settings": {
@@ -440,7 +459,7 @@ def process_apm_config(app_config, env_config):
 
     return apm_config
 
-def process_log_config(app_config, env_config):
+def process_log_config(app_config, env_config, new_cluster_name):
     """Process log monitoring configuration for standalone log monitoring."""
     logs_config = {}
 
@@ -510,6 +529,7 @@ def process_log_config(app_config, env_config):
         # Create error rate monitor
         logs_config[f"{service_name}-error-rate"] = {
             "name": f"Error Rate Monitor for {service_name}",
+            "cluster": new_cluster_name,
             "query": f'logs("service:{service_name} env:{environment} status:error").index("{index}").rollup("count").by("service").last("5m") > {final_thresholds["critical"]}',
             "alert_settings": {
                 "priority": override_service_settings.get('alert_settings', {}).get('priority',
@@ -528,6 +548,7 @@ def process_log_config(app_config, env_config):
             monitor_id = f"{service_name}-{log_line}"
             logs_config[monitor_id] = {
                 "name": f"Custom Log Monitor for '{log_line}'",
+                "cluster": new_cluster_name,
                 "query": f'logs("service:{service_name} env:{environment} {log_line_query}").index("{index}").rollup("count").by("service").last("5m") > {final_thresholds["critical"]}',
                 "alert_settings": {
                     "priority": override_service_settings.get('alert_settings', {}).get('priority',
@@ -553,12 +574,12 @@ def process_app_config(app_config, env_config):
     app_name = app_config['name']  # Define app_name from app_config
 
     services_config = process_ecs_services(ecs_config, env_config, new_cluster_name, app_name) if ecs_config.get('enabled', False) else {}
-    databases_config = process_db_config(db_config, env_config, app_name)
-    queues_config, topics_config = process_messaging(messaging_config, env_config, app_name)
-    alb_services_config = process_alb_config(alb_config, env_config, app_name)
-    applications_config = process_application_config(app_config, env_config)
-    apm_config = process_apm_config(app_config, env_config)
-    logs_config= process_log_config(app_config, env_config)
+    databases_config = process_db_config(db_config, env_config, app_name, new_cluster_name)
+    queues_config, topics_config = process_messaging(messaging_config, env_config, app_name, new_cluster_name)
+    alb_services_config = process_alb_config(alb_config, env_config, app_name, new_cluster_name)
+    applications_config = process_application_config(app_config, env_config, new_cluster_name)
+    apm_config = process_apm_config(app_config, env_config, new_cluster_name)
+    logs_config= process_log_config(app_config, env_config, new_cluster_name)
 
     return services_config, databases_config, queues_config, topics_config, alb_services_config, applications_config, apm_config, logs_config
 

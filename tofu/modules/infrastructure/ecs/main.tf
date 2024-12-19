@@ -19,10 +19,10 @@ locals {
 resource "datadog_monitor" "cpu_usage" {
   for_each = var.services
 
-  name    = "[${var.environment}] ECS Service ${each.value.name} - High CPU Usage"
+  name    = "[${var.environment}] ECS Service ${each.value.service_name} - High CPU Usage"
   type    = "metric alert"
   message = <<-EOT
-    ## Service ${each.value.name} is experiencing high CPU usage
+    ## Service ${each.value.service_name} is experiencing high CPU usage
 
     Current CPU Usage: {{value}}%
     Threshold: ${each.value.thresholds.cpu_percent}%
@@ -42,7 +42,7 @@ resource "datadog_monitor" "cpu_usage" {
     @${local.slack_channel}
   EOT
 
-  query = "avg(last_4h):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.name}*}.rollup(max, 120) >= ${each.value.thresholds.cpu_percent}"
+  query = "avg(last_4h):avg:ecs.fargate.cpu.percent{cluster_name:${each.value.cluster},service:${each.value.service_name}*}.rollup(max, 120) >= ${each.value.thresholds.cpu_percent}"
 
   monitor_thresholds {
     critical          = each.value.thresholds.cpu_percent
@@ -60,9 +60,10 @@ resource "datadog_monitor" "cpu_usage" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.name}",
       "cluster:${each.value.cluster}",
-      "service:${each.value.name}"
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}",
+      "task_name:${each.value.task_name}"
     ]
   )
   priority = each.value.alert_settings.priority
@@ -72,10 +73,10 @@ resource "datadog_monitor" "cpu_usage" {
 resource "datadog_monitor" "memory_usage" {
   for_each = var.services
 
-  name    = "[${var.environment}] ECS Service ${each.value.name} - High Memory Usage"
+  name    = "[${var.environment}] ECS Service ${each.value.service_name} - High Memory Usage"
   type    = "metric alert"
   message = <<-EOT
-    ## Service ${each.value.name} is approaching Out of Memory condition
+    ## Service ${each.value.service_name} is approaching Out of Memory condition
 
     Current Memory Usage: {{value}}%
     Memory Threshold: ${each.value.thresholds.memory_percent}% of ${format("%.2f", each.value.thresholds.memory_available / 1024)} GB
@@ -97,7 +98,7 @@ resource "datadog_monitor" "memory_usage" {
   EOT
 
   # Query to calculate memory usage as a percentage of memory_available in GB
-  query = "avg(last_5m):avg:ecs.fargate.mem.usage{cluster_name:${each.value.cluster},service:${each.value.name}*} > ${(each.value.thresholds.memory_available * 1024 * 1024) * (each.value.thresholds.memory_percent / 100)}"
+  query = "avg(last_5m):avg:ecs.fargate.mem.usage{cluster_name:${each.value.cluster},service:${each.value.service_name}*} > ${(each.value.thresholds.memory_available * 1024 * 1024) * (each.value.thresholds.memory_percent / 100)}"
 
   monitor_thresholds {
     critical          = (each.value.thresholds.memory_available * 1024 * 1024) * (each.value.thresholds.memory_percent / 100)
@@ -115,9 +116,10 @@ resource "datadog_monitor" "memory_usage" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.name}",
       "cluster:${each.value.cluster}",
-      "service:${each.value.name}"
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}",
+      "task_name:${each.value.task_name}"
     ]
   )
 
@@ -129,10 +131,10 @@ resource "datadog_monitor" "memory_usage" {
 resource "datadog_monitor" "network_errors" {
   for_each = var.services
 
-  name    = "[${var.environment}] ECS Service ${each.value.name} - Network Errors Detected"
+  name    = "[${var.environment}] ECS Service ${each.value.service_name} - Network Errors Detected"
   type    = "metric alert"
   message = <<-EOT
-    ## Service ${each.value.name} is experiencing network errors
+    ## Service ${each.value.service_name} is experiencing network errors
 
     Current Error Rate: {{value}}
     Threshold: ${each.value.thresholds.network_errors}
@@ -154,8 +156,8 @@ resource "datadog_monitor" "network_errors" {
 
   query = <<EOT
     avg(last_15m):(
-      sum:ecs.fargate.net.rcvd_errors{cluster_name:${each.value.cluster},service:${each.value.name}*}.as_rate() +
-      sum:ecs.fargate.net.sent_errors{cluster_name:${each.value.cluster},service:${each.value.name}*}.as_rate()
+      sum:ecs.fargate.net.rcvd_errors{cluster_name:${each.value.cluster},service:${each.value.service_name}*}.as_rate() +
+      sum:ecs.fargate.net.sent_errors{cluster_name:${each.value.cluster},service:${each.value.service_name}*}.as_rate()
     ) > ${each.value.thresholds.network_errors}
     EOT
 
@@ -177,9 +179,10 @@ resource "datadog_monitor" "network_errors" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.name}",
       "cluster:${each.value.cluster}",
-      "service:${each.value.name}"
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}",
+      "task_name:${each.value.task_name}"
     ]
   )
 
@@ -191,10 +194,10 @@ resource "datadog_monitor" "container_health" {
   # Only create this monitor when environment is "prd"
   for_each = var.environment == "prd" ? var.services : {}
 
-  name    = "[${var.environment}] ECS Service ${each.value.name} - Container Health Check Failures"
+  name    = "[${var.environment}] ECS Service ${each.value.service_name} - Container Health Check Failures"
   type    = "metric alert"
   message = <<-EOT
-    ## Service ${each.value.name} is experiencing container health check failures
+    ## Service ${each.value.service_name} is experiencing container health check failures
 
     Current Running Task Count: {{value}}
     Minimum Expected Tasks: ${floor(each.value.thresholds.desired_count * 0.5)}
@@ -212,7 +215,7 @@ resource "datadog_monitor" "container_health" {
     * Recent deployments
     * ECS Events and Service status
 
-    @${local.slack_channel}
+    @${var.environment == "prd" ? "slack-dd-unhealthy-container-p1" : "slack-dd-unhealthy-container-p2"}
   EOT
 
   query = "sum(last_1h):avg:ecs.containerinsights.RunningTaskCount{clustername:${each.value.cluster},servicename:${each.value.service_name}} < 0.9"
@@ -231,9 +234,10 @@ resource "datadog_monitor" "container_health" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.name}",
       "cluster:${each.value.cluster}",
-      "environment:prd"
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}",
+      "task_name:${each.value.task_name}"
     ]
   )
 
@@ -244,7 +248,7 @@ resource "datadog_monitor" "container_health" {
 resource "datadog_monitor" "unhealthy_tasks" {
   for_each = var.environment == "prd" ? var.services : {}
 
-  name    = "[${var.environment}] ECS Service ${each.value.name} - Unhealthy Tasks Detected"
+  name    = "[${var.environment}] ECS Service ${each.value.service_name} - Unhealthy Tasks Detected"
   type    = "query alert"
   message = <<-EOT
     ## Service ${each.value.name} has unhealthy tasks
@@ -262,10 +266,10 @@ resource "datadog_monitor" "unhealthy_tasks" {
     * Resource constraints
     * Health check configurations
 
-    @${local.slack_channel}
+    @${var.environment == "prd" ? "slack-dd-unhealthy-container-p1" : "slack-dd-unhealthy-container-p2"}
   EOT
 
-  query = "avg(last_5m):avg:aws.ecs.service.desired{cluster:${each.value.cluster}, service:${each.value.name}*} - avg:aws.ecs.service.running{cluster:${each.value.cluster}, service:${each.value.name}*} > 0"
+  query = "max(last_1m):avg:aws.ecs.service.desired{cluster:${each.value.cluster},service:${each.value.service_name}*} - avg:aws.ecs.service.running{cluster:${each.value.cluster},service:${each.value.service_name}*} > 0"
 
   monitor_thresholds {
     critical          = 0
@@ -276,15 +280,64 @@ resource "datadog_monitor" "unhealthy_tasks" {
   notify_no_data      = false
   no_data_timeframe   = 10
   require_full_window = false
-  evaluation_delay    = 900
+  evaluation_delay    = 30
 
   tags = concat(
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.name}",
       "cluster:${each.value.cluster}",
-      "service:${each.value.name}"
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}",
+      "task_name:${each.value.task_name}"
+    ]
+  )
+
+  priority = each.value.alert_settings.priority
+}
+
+# ECS Task Health Monitor
+# ECS Task Health Monitor
+resource "datadog_monitor" "ecs_task_health" {
+  for_each = var.services
+
+  name    = "[${var.environment}] ECS Service ${each.value.service_name} - Task Health Check"
+  type    = "service check"
+  message = <<-EOT
+    ## Service ${each.value.name} has unhealthy or draining tasks
+
+    At least one task is unhealthy or in a draining state.
+
+    Please investigate:
+    * ECS Service Events
+    * Container logs
+    * Recent deployments
+    * Resource constraints
+    * Health check configurations
+
+    @${var.environment == "prd" ? "slack-dd-unhealthy-container-p1" : "slack-dd-unhealthy-container-p2"}
+  EOT
+
+  query = "\"fargate_check\".over(\"task_name:${each.value.task_name}\").by(\"*\").last(2).count_by_status()"
+
+  monitor_thresholds {
+    ok       = 1
+    critical = 1
+  }
+
+  include_tags        = true
+  notify_no_data      = false
+  require_full_window = false
+  evaluation_delay    = 30
+
+  tags = concat(
+    local.monitor_tags,
+    [for k, v in each.value.tags : "${k}:${v}"],
+    [
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}",
+      "task_name:${each.value.task_name}"
     ]
   )
 

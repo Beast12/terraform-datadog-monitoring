@@ -12,6 +12,7 @@ variable "topics" {
   description = "Map of SNS topics to monitor"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string # For unified service tagging
     topic_name   = string
     thresholds = object({

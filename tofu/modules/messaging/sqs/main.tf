@@ -71,7 +71,9 @@ resource "datadog_monitor" "age_of_oldest_message" {
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "queue:${each.value.name}",
-      "service:${each.value.service_name}"
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -133,7 +135,9 @@ resource "datadog_monitor" "queue_depth" {
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "queue:${each.value.name}",
-      "service:${each.value.service_name}"
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -201,8 +205,9 @@ resource "datadog_monitor" "dlq_messages" {
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "queue:${each.value.name}",
-      "service:${each.value.service_name}",
-      "queue_type:dlq"
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -266,8 +271,9 @@ resource "datadog_monitor" "dlq_message_age" {
     [for k, v in each.value.tags : "${k}:${v}"],
     [
       "queue:${each.value.name}",
-      "service:${each.value.service_name}",
-      "queue_type:dlq"
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 

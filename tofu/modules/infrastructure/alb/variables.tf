@@ -12,6 +12,7 @@ variable "alb" { # Add this variable declaration
   description = "Map of ALB configurations"
   type = map(object({
     name         = string
+    cluster      = string
     alb_name     = string
     service_name = string
     thresholds = object({

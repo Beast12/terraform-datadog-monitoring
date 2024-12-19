@@ -2,7 +2,7 @@ locals {
   monitor_tags = concat(
     [for k, v in var.tags : "${k}:${v}"],
     [
-      "service_type:ecs",
+      "service_type:logs",
       "environment:${var.environment}",
       "env:${var.environment}",
       "projectname:${var.project_name}"
@@ -74,11 +74,9 @@ resource "datadog_monitor" "log_monitor" {
   tags = concat(
     local.monitor_tags,
     [
-      "service:${each.value.service_name}",
-      "env:${var.environment}",
-      "product:logs",
-      "alert_type:log",
-      "monitor_type:threshold"
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 

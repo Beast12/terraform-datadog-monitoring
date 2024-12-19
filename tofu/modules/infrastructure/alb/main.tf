@@ -71,7 +71,7 @@ resource "datadog_monitor" "request_count" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}",
+      "ecs-service:${each.value.service_name}",
       "loadbalancer:${each.value.alb_name}",
       "service:${each.value.name}"
     ]
@@ -127,7 +127,7 @@ resource "datadog_monitor" "latency" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}",
+      "ecs-service:${each.value.service_name}",
       "loadbalancer:${each.value.alb_name}",
       "service:${each.value.name}"
     ]
@@ -186,7 +186,7 @@ resource "datadog_monitor" "error_rate" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
-      "service:${each.value.service_name}",
+      "ecs-service:${each.value.service_name}",
       "loadbalancer:${each.value.alb_name}",
       "service:${each.value.name}"
     ]

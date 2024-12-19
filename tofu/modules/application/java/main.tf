@@ -1,7 +1,13 @@
 locals {
-  monitor_tags = [
-    for k, v in var.tags : "${k}:${v}"
-  ]
+  monitor_tags = concat(
+    [for k, v in var.tags : "${k}:${v}"],
+    [
+      "service_type:java",
+      "environment:${var.environment}",
+      "env:${var.environment}",
+      "projectname:${var.project_name}"
+    ]
+  )
 
   slack_channel = try(
     var.notification_channels.application["java"],
@@ -54,17 +60,12 @@ resource "datadog_monitor" "jvm_memory_usage" {
 
   tags = concat(
     local.monitor_tags,
-    [
-      "service_type:${each.value.service_type}",
-      "environment:${var.environment}",
-      "env:${var.environment}",
-      "projectname:${var.project_name}",
-      "monitor_type:anomaly",
-      "analysis_period:weekly"
-    ],
     [for k, v in each.value.tags : "${k}:${v}"],
-    ["service:${each.value.service_name}"]
+    [
+      "cluster:${each.value.cluster}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
+    ]
   )
-
   priority = each.value.alert_settings.priority
 }

@@ -12,6 +12,7 @@ variable "queues" {
   description = "Map of queues to monitor"
   type = map(object({
     name         = string
+    cluster      = string
     service_name = string # For unified service tagging
     queue_name   = string
     dlq_name     = optional(string)

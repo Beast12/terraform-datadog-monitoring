@@ -67,9 +67,10 @@ resource "datadog_monitor" "cpu_usage" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
+      "cluster:${each.value.cluster}",
       "database:${each.value.name}",
-      "type:${each.value.type}",
-      "service:${each.value.service_name}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -127,9 +128,10 @@ resource "datadog_monitor" "memory_usage" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
+      "cluster:${each.value.cluster}",
       "database:${each.value.name}",
-      "type:${each.value.type}",
-      "service:${each.value.service_name}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -188,9 +190,10 @@ resource "datadog_monitor" "connections" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
+      "cluster:${each.value.cluster}",
       "database:${each.value.name}",
-      "type:${each.value.type}",
-      "service:${each.value.service_name}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 
@@ -250,9 +253,10 @@ resource "datadog_monitor" "iops_usage" {
     local.monitor_tags,
     [for k, v in each.value.tags : "${k}:${v}"],
     [
+      "cluster:${each.value.cluster}",
       "database:${each.value.name}",
-      "type:${each.value.type}",
-      "service:${each.value.service_name}",
+      "ecs-service:${each.value.service_name}",
+      "service:${each.value.name}"
     ]
   )
 

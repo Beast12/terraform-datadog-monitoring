@@ -12,6 +12,7 @@ variable "databases" {
   description = "Map of databases to monitor"
   type = map(object({
     name         = string
+    cluster      = string
     type         = string # "aurora" or "rds"
     identifier   = string # cluster identifier for Aurora, instance identifier for RDS
     service_name = string
