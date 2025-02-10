@@ -5,13 +5,13 @@
 [![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 [![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)](https://www.terraform.io/)
 [![Datadog](https://img.shields.io/badge/datadog-%23632CA6.svg?style=for-the-badge&logo=datadog&logoColor=white)](https://www.datadoghq.com/)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support%20me-FFDD00?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/koen1203)
+
 *A comprehensive Terraform solution for automated Datadog monitoring across AWS services*
 
 </div>
 
 ---
-
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support%20me-FFDD00?style=flat&logo=buy-me-a-coffee)](https://buymeacoffee.com/koen1203)
 ## 🌟 Features
 
 ### 🌐 AWS Service Monitoring
